@@ -72,10 +72,10 @@ builder.Services.AddCors(opt =>
     });
 });
 
-// Configuración de Kestrel para escuchar en un puerto específico (5023)
+// Configuración de Kestrel para escuchar en un puerto específico (5024)
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
-    serverOptions.ListenAnyIP(5023); // Escucha en el puerto 5023
+    serverOptions.ListenAnyIP(5024); // Escucha en el puerto 5024
 });
 
 var app = builder.Build();

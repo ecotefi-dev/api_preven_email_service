@@ -1,9 +1,14 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Mail;
+using System.Text;
 using api_preven_email_service.DAO;
 using api_preven_email_service.Helper;
 using api_preven_email_service.Model.Email;
+using api_preven_email_service.Model.SysParametro;
+using api_preven_email_service.Negocio.Agente;
 using api_preven_email_service.Negocio.SysParametro;
+using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 
 namespace api_preven_email_service.Negocio.Email{
@@ -18,6 +23,7 @@ namespace api_preven_email_service.Negocio.Email{
         private int smtpPort = 0;
         private string smtpUser = string.Empty;
         private string smtpPass = string.Empty;
+        private string email_notifica_pedido = string.Empty;
 
         public EmailNegocio(LoggerService log, PostgreSQLInterface postgreSQLInterface){
             _log = log;
@@ -25,7 +31,7 @@ namespace api_preven_email_service.Negocio.Email{
             _apiResponse = new APIResponse();
         }
 
-        public async Task<APIResponse>Puntos(Guid uuid, int id_usuario, List<EmailPuntosModel> emailPuntosModel)
+        public async Task<APIResponse>Puntos(Guid uuid, int id_usuario, List<EmailPuntosModel> listaEmailPuntosModel)
         {
             _log.Add(uuid + " INFO - Id Usuario: " + id_usuario + " - Ingresa clase EmailNegocio método Puntos");
             _apiResponse.uuid = uuid;
@@ -57,50 +63,51 @@ namespace api_preven_email_service.Negocio.Email{
                             smtpUser = smtpModel.user;
                             smtpPass = smtpModel.pass;
 
-                            List<EmailPuntosModel> listaObservacion = [];
-                            EmailPuntosModel emailObservacion = new();
-                            string body = string.Empty;
-                            foreach(var item in emailPuntosModel){
-                                body = $@"<!DOCTYPE html>
-                                    <html lang='es'>
-                                        <head>
-                                            <meta charset='utf-8'>
-                                            <title>PREVÉN</title>
-                                        </head>
-                                        <body>
-                                            <table style='max-width: 600px; padding: 10px; margin:0 auto; border-collapse: collapse;'>
-                                                <tr style='background-color: #1D366C; height:10px;'>
-                                                    <td>
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <td style='background-color: #ecf0f1; color: #5a5a5a;  font-size: 18px; font-family: sans-serif; font-weight:bold; padding: 10px 20px 40px 20px; text-align: center;'>
-                                                        <h2 style='color: #1D366C; text-align: left;'>HOLA {item.nombre_completo}!</h2>
-                                                        <p></p>
-                                                        <p>Se han abonado {item.puntos} puntos a su cuenta de PREVÉN, hoy en día tiene un total de {item.total} puntos.</p>
-                                                    </td>
-                                                </tr>
-                                                <tr style='background-color: #1D366C'>
-                                                    <td>
-                                                        <p style='color:white; text-align: center; margin: 30px 0px 30px 0px; font-size: 15px; font-weight:bold;'>&copy; PREVÉN</p>
-                                                    </td>
-                                                </tr>
-                                            </table>
-                                        </body>
-                                    </html>";
-
-                                bool resp = await envioEmail(uuid, item.email!, "Abono de puntos PREVÉN", body);
-
-                                emailObservacion = new() { email = item.email, puntos = null, total = null, nombre_completo = null};
-
-                                if (resp)
-                                    emailObservacion.observacion = "Envío realizado correctamente"; 
-                                else 
-                                    emailObservacion.observacion = "Ocurrio un error al enviar el correo. Contacte al administrador del sistema";
-                                
-                                listaObservacion.Add(emailObservacion);
+                            APIResponse responseNP = await new SysParametroNegocio(_log, _postgreSQLInterface).SysParametroLista(uuid, id_usuario, 0, "NOTIFICA_PUNTOS", true);
+                            if(responseNP.respuesta){
+                                List<SysParametroModel> sysParNP = (List<SysParametroModel>)responseNP.resultado;
+                                email_notifica_pedido = sysParNP[0].valor;
                             }
 
+                            List<EmailPuntosModel> listaObservacion = [];
+                            EmailPuntosModel emailObservacion = new();
+
+                            foreach(EmailPuntosModel item in listaEmailPuntosModel){
+                                emailObservacion = new()
+                                {
+                                    id_agente = item.id_agente,
+                                    puntos = item.puntos
+                                };
+                                APIResponse infoAgente = await new AgenteEmailNegocio(_log, _postgreSQLInterface).AgenteEmailConsulta(uuid, id_usuario, item.id_agente);
+                                if(infoAgente.respuesta) {
+                                    EmailPuntosModel infoAgenteEmail = (EmailPuntosModel)infoAgente.resultado;
+                                    _log.Add(uuid + " INFO - EmailPuntosModel: " + _log.ConvertirModeloATexto(infoAgenteEmail));
+                                    emailObservacion.email = item.email;
+                                    infoAgenteEmail.puntos = item.puntos;
+                                    string body = EmailBody(infoAgenteEmail, true);
+                                    bool respuesta = await envioEmail(uuid, infoAgenteEmail.email!, "Actualización de Puntos PREVÉN", body);
+                                    if(respuesta)
+                                        emailObservacion.observacion = "Correo enviado exitosamente al email: " + infoAgenteEmail.email;
+                                    else 
+                                        emailObservacion.observacion = "Ocurrio un error al enviar el correo al email: " + infoAgenteEmail.email;
+
+                                    if(!email_notifica_pedido.IsNullOrEmpty()){
+                                        body = EmailBody(infoAgenteEmail, false);
+                                        respuesta = await envioEmail(uuid, email_notifica_pedido, "Actualización de Puntos PREVÉN", body);
+
+                                        if(respuesta)
+                                            emailObservacion.observacion += " | Correo enviado exitosamente al email: " + email_notifica_pedido;
+                                        else 
+                                            emailObservacion.observacion += " | Ocurrio un error al enviar el correo al email: " + email_notifica_pedido;
+                                    }
+                                } else {
+                                    emailObservacion.email = item.email;
+                                    emailObservacion.observacion = "No se encontro el agente.";
+                                }
+
+                                listaObservacion.Add(emailObservacion);
+                            }
+                            
                             _apiResponse.resultado = listaObservacion;
                         } else { 
                             _apiResponse.respuesta = false;
@@ -162,7 +169,90 @@ namespace api_preven_email_service.Negocio.Email{
             }
 
             return respuesta;
-    
+        }
+
+        private string EmailBody(EmailPuntosModel emailPuntosModel, bool agente){
+            StringBuilder nombre = new();
+            if(agente)
+                nombre.AppendLine($@"Hola {emailPuntosModel.nombres}:");
+
+            StringBuilder texto = new();
+            if(agente)
+                texto.AppendLine($@"Te informamos que hemos agregado puntos adicionales a tu usuario en el Portal de Puntos PREVÉN. Quedando de la siguiente manera:");
+            else
+                texto.AppendLine($@"Te informamos que hemos agregado puntos adicionales al usuario: {emailPuntosModel.nombre_completo} con código identificador número {emailPuntosModel.id_agente} 
+                    en el Portal de Puntos PREVÉN. Quedando de la siguiente manera:");
+
+            int puntos_anteriores = (int)emailPuntosModel.saldo_puntos! - emailPuntosModel.puntos;
+            int puntos_acumulados = emailPuntosModel.puntos;
+            int puntos_totales = (int)emailPuntosModel.saldo_puntos!;
+
+            string body = string.Empty;
+            body = $@"
+                <!DOCTYPE html PUBLIC ""-//W3C//DTD XHTML 1.0 Transitional//EN"" ""http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"">
+                <html xmlns=""http://www.w3.org/1999/xhtml"" xmlns:o=""urn:schemas-microsoft-com:office:office"">
+                    <head>
+                        <meta http-equiv=""Content-Type"" content=""text/html; charset=utf-8"">
+                        <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+                        <title>Correo Electrónico</title>
+                        <style>
+                            body, table, td {{ font-family: Arial, sans-serif; }}
+                            .container {{ width: 100%; max-width: 600px; margin: auto; padding: 20px; background-color: #f4f4f4; }}
+                            .header {{ background-color: #1D366C; padding: 10px; color: white; text-align: center; }}
+                            .content {{ padding: 20px; background-color: #ffffff; font-size: 13px; }}
+                            .footer {{  background-color: #1D366C; padding: 10px; text-align: center; font-size: 11px; color: white; }}
+                        </style>
+                    </head>
+                    <body>
+                        <table class=""container"">
+                            <tr>
+                                <td class=""header"">
+                                    <h1>ACTUALIZACIÓN DE PUNTOS</h1>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class=""content"">
+                                    <h2 style='color: #1D366C; text-align: center;'>PREVÉN | Tu socio de seguros</h2>
+                                    <p>{nombre}</p>
+                                    <p>{texto}</p>
+                                    <table class=""container"">
+                                        <tr>
+                                            <td style='text-align: left;'>
+                                                Puntos anteriores:
+                                            </td>
+                                            <td style='text-align: right;'>
+                                                {puntos_anteriores.ToString("N2", new CultureInfo("es-MX"))}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style='text-align: left;'>
+                                                Puntos acumulados:
+                                            </td>
+                                            <td style='text-align: right;'>
+                                                {puntos_acumulados.ToString("N2", new CultureInfo("es-MX"))}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style='text-align: left;'>
+                                                <b>Puntos totales:</b>
+                                            </td>
+                                            <td style='text-align: right;'>
+                                                <b>{puntos_totales.ToString("N2", new CultureInfo("es-MX"))}</b>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                            <tr> 
+                                <td class=""footer"">
+                                    <b><p>&copy; PREVÉN</p></b>
+                                </td>
+                            </tr>
+                        </table>
+                    </body>
+                </html>";
+
+            return body;
         }
     }
 }

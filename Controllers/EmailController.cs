@@ -89,9 +89,3 @@ namespace api_preven.Controllers
         }
     }
 }
-
-
-/*
-Carga de puntos masivos e individuales
-Cada cambio de estatus de pedido - Solicitado - En transito - Entregado - Cancelado
-*/

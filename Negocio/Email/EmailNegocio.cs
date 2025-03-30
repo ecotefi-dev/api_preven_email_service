@@ -194,33 +194,37 @@ namespace api_preven_email_service.Negocio.Email{
                     <head>
                         <meta http-equiv=""Content-Type"" content=""text/html; charset=utf-8"">
                         <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
-                        <title>Correo Electrónico</title>
+                        <title>PREVÉN | Tu socio de seguros</title>
                         <style>
-                            body, table, td {{ font-family: Arial, sans-serif; }}
-                            .container {{ width: 100%; max-width: 600px; margin: auto; padding: 20px; background-color: #f4f4f4; }}
-                            .header {{ background-color: #1D366C; padding: 10px; color: white; text-align: center; }}
-                            .content {{ padding: 20px; background-color: #ffffff; font-size: 13px; }}
-                            .footer {{  background-color: #1D366C; padding: 10px; text-align: center; font-size: 11px; color: white; }}
+                             body {{ font-family: roboto, ""helvetica neue"", helvetica, arial, sans-serif; background-color: #f4f4f4; }}
+
+                            .titulo {{ padding: 20px 0px 20px 0px ; background-color: #ffffff; font-size: 30px; text-align: center; font-weight: bold; }}
+                            .tituloDos {{ background-color: #f4f4f4; font-size: 13px; text-align: center; }}
+                            .containerDos {{ width: 100%; max-width: 600px; margin: auto; background-color: #ffffff; padding: 20px 0px 5px 0px; font-size: 20px; }}
+
+                            .container {{ width: 100%; max-width: 600px; margin: auto; padding: 15px 0px 5px 0px; }}
+                            .content {{ padding: 20px; background-color: #ffffff; text-align: justify;}}
+
+                            .footer {{ width: 100%; max-width: 600px; margin: auto; background-color: #ffffff; padding: 5px 0px 5px 0px; text-align: center; font-size: 11px; }}
                         </style>
                     </head>
                     <body>
-                        <table class=""container"">
-                            <tr>
-                                <td class=""header"">
-                                    <h1>ACTUALIZACIÓN DE PUNTOS</h1>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class=""content"">
-                                    <h2 style='color: #1D366C; text-align: center;'>PREVÉN | Tu socio de seguros</h2>
-                                    <p>{nombre}</p>
-                                    <p>{texto}</p>
-                                    <table class=""container"">
+                        <div class=""titulo"">
+                            <p>ACTUALIZACIÓN DE PUNTOS</p>
+                        </div>
+                        <div class=""tituloDos"">
+                            <div class=""containerDos"">
+                                <p>PREVÉN | Tu socio de seguros</p>
+                                <div class=""tituloDos"" style=""padding-top: 15px;""></div>
+                                <div class=""content"">
+                                    <p style=""font-size:15.5px"">{nombre}</p>
+                                    <p style=""font-size:15.5px"">{texto}</p>
+                                    <table class=""container"" style=""border: 3px solid black; color: rgb(53, 53, 53); border-spacing: 0 !important; border-collapse: collapse !important; font-size:12px;"">
                                         <tr>
-                                            <td style='text-align: left;'>
+                                            <td style='text-align: left; padding-top: 20px;'>
                                                 Puntos anteriores:
                                             </td>
-                                            <td style='text-align: right;'>
+                                            <td style='text-align: right; padding-top: 20px;'>
                                                 {puntos_anteriores.ToString("N2", new CultureInfo("es-MX"))}
                                             </td>
                                         </tr>
@@ -241,14 +245,13 @@ namespace api_preven_email_service.Negocio.Email{
                                             </td>
                                         </tr>
                                     </table>
-                                </td>
-                            </tr>
-                            <tr> 
-                                <td class=""footer"">
-                                    <b><p>&copy; PREVÉN</p></b>
-                                </td>
-                            </tr>
-                        </table>
+                                </div>
+                            </div>
+                            <div class=""footer"">
+                                <b><p>&copy; PREVÉN</p></b>
+                            </div>
+                            <div class=""tituloDos"" style=""padding-top: 15px;""></div>
+                        </div>
                     </body>
                 </html>";
 

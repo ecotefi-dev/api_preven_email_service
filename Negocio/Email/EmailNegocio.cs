@@ -180,7 +180,7 @@ namespace api_preven_email_service.Negocio.Email{
             if(agente)
                 texto.AppendLine($@"Te informamos que hemos agregado puntos adicionales a tu usuario en el Portal de Puntos PREVÉN. Quedando de la siguiente manera:");
             else
-                texto.AppendLine($@"Te informamos que hemos agregado puntos adicionales al usuario: {emailPuntosModel.nombre_completo} con código identificador número {emailPuntosModel.id_agente} 
+                texto.AppendLine($@"Te informamos que hemos agregado puntos adicionales al usuario: {emailPuntosModel.nombre_completo} con número identificador {emailPuntosModel.id_agente} 
                     en el Portal de Puntos PREVÉN. Quedando de la siguiente manera:");
 
             int puntos_anteriores = (int)emailPuntosModel.saldo_puntos! - emailPuntosModel.puntos;

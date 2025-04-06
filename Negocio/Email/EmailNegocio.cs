@@ -5,9 +5,9 @@ using System.Text;
 using api_preven_email_service.DAO;
 using api_preven_email_service.Helper;
 using api_preven_email_service.Model.Email;
-using api_preven_email_service.Model.SysParametro;
+using api_preven_email_service.Model.Empresa;
 using api_preven_email_service.Negocio.Agente;
-using api_preven_email_service.Negocio.SysParametro;
+using api_preven_email_service.Negocio.Empresa;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 
@@ -53,7 +53,7 @@ namespace api_preven_email_service.Negocio.Email{
                     _apiResponse.statusCode = HttpStatusCode.OK;
                     _apiResponse.mensaje = "Envío exitoso.";
 
-                    APIResponse responseSMTP = await new SysParametroNegocio(_log, _postgreSQLInterface).SysParametroEmail(uuid, id_usuario);
+                    APIResponse responseSMTP = await new EmpresaParametroNegocio(_log, _postgreSQLInterface).EmpresaParametroEmail(uuid, id_usuario);
 
                     if(responseSMTP.respuesta){
                         if(responseSMTP.resultado != null){
@@ -63,9 +63,9 @@ namespace api_preven_email_service.Negocio.Email{
                             smtpUser = smtpModel.user;
                             smtpPass = smtpModel.pass;
 
-                            APIResponse responseNP = await new SysParametroNegocio(_log, _postgreSQLInterface).SysParametroLista(uuid, id_usuario, 0, "NOTIFICA_PUNTOS", true);
+                            APIResponse responseNP = await new EmpresaParametroNegocio(_log, _postgreSQLInterface).EmpresaParametroLista(uuid, id_usuario, 0, "NOTIFICA_PUNTOS", true);
                             if(responseNP.respuesta){
-                                List<SysParametroModel> sysParNP = (List<SysParametroModel>)responseNP.resultado;
+                                List<EmpresaParametroModel> sysParNP = (List<EmpresaParametroModel>)responseNP.resultado;
                                 email_notifica_pedido = sysParNP[0].valor;
                             }
 

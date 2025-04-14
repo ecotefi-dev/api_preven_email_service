@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Mail;
+using System.Net.Mime;
 using System.Text;
 using api_preven_email_service.DAO;
 using api_preven_email_service.Helper;
@@ -84,22 +85,13 @@ namespace api_preven_email_service.Negocio.Email{
                                     _log.Add(uuid + " INFO - EmailPuntosModel: " + _log.ConvertirModeloATexto(infoAgenteEmail));
                                     emailObservacion.email = item.email;
                                     infoAgenteEmail.puntos = item.puntos;
-                                    string body = EmailBody(infoAgenteEmail, true);
+                                    string body = EmailBody(infoAgenteEmail);
+                                    _log.Add(body);
                                     bool respuesta = await envioEmail(uuid, infoAgenteEmail.email!, "Actualización de Puntos PREVÉN", body);
                                     if(respuesta)
                                         emailObservacion.observacion = "Correo enviado exitosamente al email: " + infoAgenteEmail.email;
                                     else 
                                         emailObservacion.observacion = "Ocurrio un error al enviar el correo al email: " + infoAgenteEmail.email;
-
-                                    if(!email_notifica_pedido.IsNullOrEmpty()){
-                                        body = EmailBody(infoAgenteEmail, false);
-                                        respuesta = await envioEmail(uuid, email_notifica_pedido, "Actualización de Puntos PREVÉN", body);
-
-                                        if(respuesta)
-                                            emailObservacion.observacion += " | Correo enviado exitosamente al email: " + email_notifica_pedido;
-                                        else 
-                                            emailObservacion.observacion += " | Ocurrio un error al enviar el correo al email: " + email_notifica_pedido;
-                                    }
                                 } else {
                                     emailObservacion.email = item.email;
                                     emailObservacion.observacion = "No se encontro el agente.";
@@ -145,21 +137,61 @@ namespace api_preven_email_service.Negocio.Email{
 
             return _apiResponse;
         }
-
         private async Task<bool> envioEmail(Guid uuid, string recipientEmail, string subject, string body)
         {
+            _log.Add(uuid + " INFO - clase EmailNegocio método envioEmail");
             bool respuesta = true;
 
             try {
-                SmtpClient mailClient = new SmtpClient(smtpHost, smtpPort);
-                MailMessage mailMessage = new MailMessage(smtpUser, recipientEmail, subject, body);
-                mailMessage.IsBodyHtml = true;
-                NetworkCredential mailAuthentication = new NetworkCredential(smtpUser, smtpPass);
+                //recipientEmail = "hugo.glz.mora@gmail.com";
+                SmtpClient mailClient = new(smtpHost, smtpPort);
+                MailMessage mailMessage = new(smtpUser, recipientEmail, subject, body)
+                {
+                    IsBodyHtml = true
+                };
+
+                if(!email_notifica_pedido!.IsNullOrEmpty())
+                    mailMessage.CC.Add(email_notifica_pedido);
+
+                NetworkCredential mailAuthentication = new(smtpUser, smtpPass);
                 mailClient.DeliveryMethod = SmtpDeliveryMethod.Network;
                 mailClient.EnableSsl = false;
                 mailClient.UseDefaultCredentials = false;
-
                 mailClient.Credentials = mailAuthentication;
+
+                // Preparar lista de recursos
+                List<LinkedResource> linkedResources = [];
+                string htmlBody = body;
+
+                // Imagen encabezado
+                string imagePath = Path.Combine(AppContext.BaseDirectory, "images", "encabezado_1.png");
+                if (File.Exists(imagePath))
+                {
+                    string contentId = Guid.NewGuid().ToString();
+                    htmlBody = htmlBody.Replace("ENCABEZADO_IMG", contentId);
+
+                    LinkedResource inlineImage = new(imagePath, MediaTypeNames.Image.Jpeg)
+                    {
+                        ContentId = contentId,
+                        TransferEncoding = TransferEncoding.Base64,
+                        ContentType = new ContentType(MediaTypeNames.Image.Jpeg)
+                    };
+                    linkedResources.Add(inlineImage);
+                }
+                else
+                {
+                    _log.Add($"ERROR - Imagen no encontrada: {imagePath}");
+                }
+
+                // Crear una sola vista HTML
+                AlternateView htmlView = AlternateView.CreateAlternateViewFromString(htmlBody, null, MediaTypeNames.Text.Html);
+                foreach (var resource in linkedResources)
+                {
+                    htmlView.LinkedResources.Add(resource);
+                }
+
+                mailMessage.AlternateViews.Add(htmlView);
+
                 await mailClient.SendMailAsync(mailMessage);
                 _log.Add(uuid + $@" INFO - Email enviado a: {recipientEmail}");
 
@@ -170,19 +202,23 @@ namespace api_preven_email_service.Negocio.Email{
 
             return respuesta;
         }
-
-        private string EmailBody(EmailPuntosModel emailPuntosModel, bool agente){
-            StringBuilder nombre = new();
-            if(agente)
-                nombre.AppendLine($@"Hola {emailPuntosModel.nombres}:");
-
+        private string EmailBody(EmailPuntosModel emailPuntosModel){
+            StringBuilder leyenda = new();
             StringBuilder texto = new();
-            if(agente)
-                texto.AppendLine($@"Te informamos que hemos agregado puntos adicionales a tu usuario en el Portal de Puntos PREVÉN. Quedando de la siguiente manera:");
-            else
-                texto.AppendLine($@"Te informamos que hemos agregado puntos adicionales al usuario: {emailPuntosModel.nombre_completo} con número identificador {emailPuntosModel.id_agente} 
-                    en el Portal de Puntos PREVÉN. Quedando de la siguiente manera:");
-
+            StringBuilder descripcionPuntos = new();
+            
+            if(emailPuntosModel.puntos > 0) {
+                leyenda.AppendLine($@"Hemos agregado puntos a tu cuenta.");
+                texto.AppendLine($@"Te informamos que hemos agregado puntos adicionales a tu usuario en el Portal de Puntos PREVÉN.<br><br>
+                                    Puedes consultarlos en <a href=""https://www.preven.mx/puntos"" target=""_blank"" style=""color:#4CB5F5; text-decoration: none;"">www.preven.mx/puntos</a> y seguir buscando artículos de tu interés.");
+                descripcionPuntos.AppendLine($@"Puntos acumulados.");    
+            } else {
+                leyenda.AppendLine($@"Hemos ajustado puntos en tu cuenta.");
+                texto.AppendLine($@"Te informamos que hemos ajustado puntos a tu usuario en el Portal de Puntos PREVÉN.<br><br>
+                                    Puedes consultarlos en <a href=""https://www.preven.mx/puntos"" target=""_blank"" style=""color:#4CB5F5; text-decoration: none;"">www.preven.mx/puntos</a> y seguir buscando artículos de tu interés.");
+                descripcionPuntos.AppendLine($@"Puntos ajustados.");
+            }
+            
             int puntos_anteriores = (int)emailPuntosModel.saldo_puntos! - emailPuntosModel.puntos;
             int puntos_acumulados = emailPuntosModel.puntos;
             int puntos_totales = (int)emailPuntosModel.saldo_puntos!;
@@ -196,61 +232,96 @@ namespace api_preven_email_service.Negocio.Email{
                         <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
                         <title>PREVÉN | Tu socio de seguros</title>
                         <style>
-                             body {{ font-family: roboto, ""helvetica neue"", helvetica, arial, sans-serif; background-color: #f4f4f4; }}
+                            @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
+                            body {{
+                                font-family: 'Montserrat', 'Segoe UI', sans-serif;
+                                background-color: white;
+                                font-size: 15px;
+                                color: #646464;
+                                text-align: justify;
+                                width: 100%;
+                                max-width: 800px;
+                                margin: auto;
+                                padding-top: 10px;
+                            }}
 
-                            .titulo {{ padding: 20px 0px 20px 0px ; background-color: #ffffff; font-size: 30px; text-align: center; font-weight: bold; }}
-                            .tituloDos {{ background-color: #f4f4f4; font-size: 13px; text-align: center; }}
-                            .containerDos {{ width: 100%; max-width: 600px; margin: auto; background-color: #ffffff; padding: 20px 0px 5px 0px; font-size: 20px; }}
+                            .titulo {{
+                                font-size: 30px;
+                                text-align: center;
+                                font-weight: bold;
+                                color: #071f55;
+                                background-color: white;
+                            }}
 
-                            .container {{ width: 100%; max-width: 600px; margin: auto; padding: 15px 0px 5px 0px; }}
-                            .content {{ padding: 20px; background-color: #ffffff; text-align: justify;}}
+                            .container {{
+                                border: 2px solid #1b2a4e; 
+                                box-sizing: border-box;
+                                width: 100%;
+                                max-width: 600px;
+                                margin: auto;
+                            }}
 
-                            .footer {{ width: 100%; max-width: 600px; margin: auto; background-color: #ffffff; padding: 5px 0px 5px 0px; text-align: center; font-size: 11px; }}
+                            .firstcontent {{
+                                width: 90%;
+                                margin: auto;
+                                background-color: white;
+                            }}
+
+                            .secondcontent {{
+                                width: 80%;
+                                margin: auto;
+                                background-color: white;
+                            }}
+
+                            .footer {{
+                                text-align: center;
+                                margin-top: 30px;
+                                color: #1b2a4e;
+                                font-weight: bold;
+                                font-size: 20px;
+                                background-color: white;
+                            }}
                         </style>
                     </head>
-                    <body>
-                        <div class=""titulo"">
-                            <p>ACTUALIZACIÓN DE PUNTOS</p>
-                        </div>
-                        <div class=""tituloDos"">
-                            <div class=""containerDos"">
-                                <p>PREVÉN | Tu socio de seguros</p>
-                                <div class=""tituloDos"" style=""padding-top: 15px;""></div>
-                                <div class=""content"">
-                                    <p style=""font-size:15.5px"">{nombre}</p>
-                                    <p style=""font-size:15.5px"">{texto}</p>
-                                    <table class=""container"" style=""border: 3px solid black; color: rgb(53, 53, 53); border-spacing: 0 !important; border-collapse: collapse !important; font-size:12px;"">
-                                        <tr>
-                                            <td style='text-align: left; padding-top: 20px;'>
-                                                Puntos anteriores:
-                                            </td>
-                                            <td style='text-align: right; padding-top: 20px;'>
-                                                {puntos_anteriores.ToString("N2", new CultureInfo("es-MX"))}
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td style='text-align: left;'>
-                                                Puntos acumulados:
-                                            </td>
-                                            <td style='text-align: right;'>
-                                                {puntos_acumulados.ToString("N2", new CultureInfo("es-MX"))}
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td style='text-align: left;'>
-                                                <b>Puntos totales:</b>
-                                            </td>
-                                            <td style='text-align: right;'>
-                                                <b>{puntos_totales.ToString("N2", new CultureInfo("es-MX"))}</b>
-                                            </td>
-                                        </tr>
+                    <body style=""background-color: white;"">
+                        <div class=""container"">
+                            <div style=""text-align: left; padding: 0; margin: 0; background-color: white;"">
+                                <img src=""cid:ENCABEZADO_IMG"" alt=""Encabezado"" style=""display: block; width: 100%; max-width:600px; margin: 0; padding: 0;"">
+                            </div>
+                            <div class=""titulo"">
+                                <p>ACTUALIZACIÓN DE PUNTOS</p>
+                            </div>
+                            <div class=""firstcontent"">
+                                <p>Buen día {emailPuntosModel.nombres}</p>
+                                <p style=""font-weight: bold; font-size: 16px; text-align: center;"">{leyenda}</p>
+                                <div class=""secondcontent"">
+                                    <p style=""text-align: center;"">{texto}</p>
+                                </div>
+                                <div style=""width: 100%;"">
+                                    <table cellpadding=""0"" cellspacing=""0"" 
+                                        style=""width: 80%; margin: auto; min-width: 300px; border-collapse: collapse; background-color: white; border: solid; border-color: #1b2a4e;"">
+                                        <tbody>
+                                            <tr>
+                                                <td style=""padding: 10px;"">Puntos anteriores</td>
+                                                <td style=""padding: 10px; text-align: right;"">{puntos_anteriores.ToString("N2", new CultureInfo("es-MX"))}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style=""padding: 10px;"">{descripcionPuntos}</td>
+                                                <td style=""padding: 10px; text-align: right;"">{puntos_acumulados.ToString("N2", new CultureInfo("es-MX"))}</td>
+                                            </tr>
+                                        </tbody>
+                                        <tfoot>
+                                            <tr style=""background-color: #1b2a4e; color: white;"">
+                                                <td style=""padding: 10px; font-weight: bold;"">PUNTOS TOTALES</td>
+                                                <td style=""padding: 10px; text-align: right;"">{puntos_totales.ToString("N2", new CultureInfo("es-MX"))}</td>
+                                            </tr>
+                                        </tfoot>
                                     </table>
                                 </div>
                             </div>
                             <div class=""footer"">
-                                <b><p>&copy; PREVÉN</p></b>
+                                <b><p>PREVÉN | Tu socio de seguros</p></b>
                             </div>
-                            <div class=""tituloDos"" style=""padding-top: 15px;""></div>
                         </div>
                     </body>
                 </html>";

@@ -303,17 +303,17 @@ namespace api_preven_email_service.Negocio.Email{
                                         <tbody>
                                             <tr>
                                                 <td style=""padding: 10px;"">Puntos anteriores</td>
-                                                <td style=""padding: 10px; text-align: right;"">{puntos_anteriores.ToString("N2", new CultureInfo("es-MX"))}</td>
+                                                <td style=""padding: 10px; text-align: right;"">{puntos_anteriores.ToString("N0", new CultureInfo("es-MX"))}</td>
                                             </tr>
                                             <tr>
                                                 <td style=""padding: 10px;"">{descripcionPuntos}</td>
-                                                <td style=""padding: 10px; text-align: right;"">{puntos_acumulados.ToString("N2", new CultureInfo("es-MX"))}</td>
+                                                <td style=""padding: 10px; text-align: right;"">{puntos_acumulados.ToString("N0", new CultureInfo("es-MX"))}</td>
                                             </tr>
                                         </tbody>
                                         <tfoot>
                                             <tr style=""background-color: #1b2a4e; color: white;"">
                                                 <td style=""padding: 10px; font-weight: bold;"">PUNTOS TOTALES</td>
-                                                <td style=""padding: 10px; text-align: right;"">{puntos_totales.ToString("N2", new CultureInfo("es-MX"))}</td>
+                                                <td style=""padding: 10px; text-align: right;"">{puntos_totales.ToString("N0", new CultureInfo("es-MX"))}</td>
                                             </tr>
                                         </tfoot>
                                     </table>

@@ -20,7 +20,7 @@ namespace api_preven_email_service.DAO.Agente{
                         SELECT id_agente
                              , email
                              , TRIM(primer_nombre || ' ' || segundo_nombre) nombres
-                             , fn_concatena_nombre(primer_nombre, segundo_nombre, apellido_paterno, apellido_materno) nombre_completo
+                             , fn_nombre_completo(primer_nombre, segundo_nombre, apellido_paterno, apellido_materno, 1) nombre_completo
                              , preven.fn_saldo_puntos(id_agente, id_empresa) saldo_puntos
                           FROM preven.agente
                          WHERE id_agente = @IdAgente";

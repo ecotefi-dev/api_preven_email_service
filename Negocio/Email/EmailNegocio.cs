@@ -208,14 +208,12 @@ namespace api_preven_email_service.Negocio.Email{
             StringBuilder descripcionPuntos = new();
             
             if(emailPuntosModel.puntos > 0) {
-                leyenda.AppendLine($@"Hemos agregado puntos a tu cuenta.");
-                texto.AppendLine($@"Te informamos que hemos agregado puntos adicionales a tu usuario en el Portal de Puntos PREVÉN.<br><br>
-                                    Puedes consultarlos en <a href=""https://www.preven.mx/puntos"" target=""_blank"" style=""color:#4CB5F5; text-decoration: none;"">www.preven.mx/puntos</a> y seguir buscando artículos de tu interés.");
-                descripcionPuntos.AppendLine($@"Puntos acumulados.");    
+                leyenda.AppendLine($@"Hemos agregado puntos a tu usuario.");
+                texto.AppendLine($@"Te informamos que hemos agregado puntos adicionales a tu usuario en el Portal de Puntos PREVÉN.<br><br>Podrás consultar tus puntos iniciando sesión en <a href=""https://www.preven.mx/puntos"" target=""_blank"" style=""color:#4CB5F5; text-decoration: none;"">www.preven.mx/puntos</a> y buscar productos de tu interés en nuestro catálogo.");
+                descripcionPuntos.AppendLine($@"Puntos acumulados.");
             } else {
-                leyenda.AppendLine($@"Hemos ajustado puntos en tu cuenta.");
-                texto.AppendLine($@"Te informamos que hemos ajustado puntos a tu usuario en el Portal de Puntos PREVÉN.<br><br>
-                                    Puedes consultarlos en <a href=""https://www.preven.mx/puntos"" target=""_blank"" style=""color:#4CB5F5; text-decoration: none;"">www.preven.mx/puntos</a> y seguir buscando artículos de tu interés.");
+                leyenda.AppendLine($@"Hemos ajustado puntos a tu usuario.");
+                texto.AppendLine($@"Te informamos que hemos ajustado puntos a tu usuario en el Portal de Puntos PREVÉN.<br><br>Podrás consultar tus puntos iniciando sesión en <a href=""https://www.preven.mx/puntos"" target=""_blank"" style=""color:#4CB5F5; text-decoration: none;"">www.preven.mx/puntos</a> y buscar productos de tu interés en nuestro catálogo.");
                 descripcionPuntos.AppendLine($@"Puntos ajustados.");
             }
             
@@ -271,14 +269,14 @@ namespace api_preven_email_service.Negocio.Email{
                                 width: 80%;
                                 margin: auto;
                                 background-color: white;
+                                color: #646464;
                             }}
 
                             .footer {{
                                 text-align: center;
-                                margin-top: 30px;
                                 color: #1b2a4e;
                                 font-weight: bold;
-                                font-size: 20px;
+                                font-size: 18px;
                                 background-color: white;
                             }}
                         </style>
@@ -295,7 +293,7 @@ namespace api_preven_email_service.Negocio.Email{
                                 <p>Buen día {emailPuntosModel.nombres}</p>
                                 <p style=""font-weight: bold; font-size: 16px; text-align: center;"">{leyenda}</p>
                                 <div class=""secondcontent"">
-                                    <p style=""text-align: center;"">{texto}</p>
+                                    <p style=""text-align: center; color: #646464;"">{texto}</p>
                                 </div>
                                 <div style=""width: 100%;"">
                                     <table cellpadding=""0"" cellspacing=""0"" 
@@ -320,7 +318,26 @@ namespace api_preven_email_service.Negocio.Email{
                                 </div>
                             </div>
                             <div class=""footer"">
-                                <b><p>PREVÉN | Tu socio de seguros</p></b>
+                                <p style=""text-align: center; font-weight: bold; color: #071f55;"">PREVÉN | Tu socio de seguros</p>
+                                <table style=""width: 100%; border-collapse: collapse;"">
+                                    <tr>
+                                        <td style=""padding: 0px 0px 10px 20px; font-size: 13px; text-align: left; font-weight: bold;"">
+                                            <a href=""https://preven.mx"" target=""_blank"" style=""text-decoration: none !important;"">
+                                            <span style=""border-bottom: none; color: #1b2a4e;"">www.preven.mx</span>
+                                            </a>
+                                        </td>
+                                        <td style=""padding: 0px 20px 10px 0px; font-size: 13px; text-align: right; font-weight: bold;"">
+                                            <span style=""vertical-align: middle;"">prevenmx</span>
+                                            &nbsp;
+                                            <a href=""https://www.facebook.com/prevenmx"" target=""_blank"" style=""text-decoration: none !important;"">
+                                            <img src=""cid:FACEBOOK_IMG"" alt=""Facebook"" width=""24px"" height=""24px"" style=""vertical-align: middle;"">
+                                            </a>
+                                            <a href=""https://www.instagram.com/prevenmx"" target=""_blank"" style=""text-decoration: none !important;"">
+                                            <img src=""cid:INSTAGRAM_IMG"" alt=""Instagram"" width=""24px"" height=""24px"" style=""vertical-align: middle;"">
+                                            </a>
+                                        </td>
+                                    </tr>
+                                </table>
                             </div>
                         </div>
                     </body>

@@ -183,6 +183,44 @@ namespace api_preven_email_service.Negocio.Email{
                     _log.Add($"ERROR - Imagen no encontrada: {imagePath}");
                 }
 
+                string imagePathFacebook = Path.Combine(AppContext.BaseDirectory, "images", "ic_facebook.png");
+                if (File.Exists(imagePathFacebook))
+                {
+                    string contentId = Guid.NewGuid().ToString();
+                    htmlBody = htmlBody.Replace("FACEBOOK_IMG", contentId);
+
+                    LinkedResource inlineImage = new(imagePathFacebook, MediaTypeNames.Image.Jpeg)
+                    {
+                        ContentId = contentId,
+                        TransferEncoding = TransferEncoding.Base64,
+                        ContentType = new ContentType(MediaTypeNames.Image.Jpeg)
+                    };
+                    linkedResources.Add(inlineImage);
+                }
+                else
+                {
+                    _log.Add($"ERROR - Imagen no encontrada: {imagePathFacebook}");
+                }
+
+                string imagePathInstagram = Path.Combine(AppContext.BaseDirectory, "images", "ic_instagram.png");
+                if (File.Exists(imagePathInstagram))
+                {
+                    string contentId = Guid.NewGuid().ToString();
+                    htmlBody = htmlBody.Replace("INSTAGRAM_IMG", contentId);
+
+                    LinkedResource inlineImage = new(imagePathInstagram, MediaTypeNames.Image.Jpeg)
+                    {
+                        ContentId = contentId,
+                        TransferEncoding = TransferEncoding.Base64,
+                        ContentType = new ContentType(MediaTypeNames.Image.Jpeg)
+                    };
+                    linkedResources.Add(inlineImage);
+                }
+                else
+                {
+                    _log.Add($"ERROR - Imagen no encontrada: {imagePathInstagram}");
+                }
+
                 // Crear una sola vista HTML
                 AlternateView htmlView = AlternateView.CreateAlternateViewFromString(htmlBody, null, MediaTypeNames.Text.Html);
                 foreach (var resource in linkedResources)
@@ -238,7 +276,6 @@ namespace api_preven_email_service.Negocio.Email{
                                 color: #646464;
                                 text-align: justify;
                                 width: 100%;
-                                max-width: 800px;
                                 margin: auto;
                                 padding-top: 10px;
                             }}
@@ -255,7 +292,7 @@ namespace api_preven_email_service.Negocio.Email{
                                 border: 2px solid #1b2a4e; 
                                 box-sizing: border-box;
                                 width: 100%;
-                                max-width: 600px;
+                                max-width: 800px;
                                 margin: auto;
                             }}
 
@@ -284,34 +321,34 @@ namespace api_preven_email_service.Negocio.Email{
                     <body style=""background-color: white;"">
                         <div class=""container"">
                             <div style=""text-align: left; padding: 0; margin: 0; background-color: white;"">
-                                <img src=""cid:ENCABEZADO_IMG"" alt=""Encabezado"" style=""display: block; width: 100%; max-width:600px; margin: 0; padding: 0;"">
+                                <img src=""cid:ENCABEZADO_IMG"" alt=""Encabezado"" style=""display: block; width: 100%; max-width:750px; margin: 0; padding: 0;"">
                             </div>
                             <div class=""titulo"">
                                 <p>ACTUALIZACIÓN DE PUNTOS</p>
                             </div>
                             <div class=""firstcontent"">
-                                <p>Buen día {emailPuntosModel.nombres}</p>
-                                <p style=""font-weight: bold; font-size: 16px; text-align: center;"">{leyenda}</p>
+                                <p style=""color: #646464; font-size: 16px;"">Buen día {emailPuntosModel.nombres}</p>
+                                <p style=""font-weight: bold; font-size: 16px; text-align: center; color: #646464;"">{leyenda}</p>
                                 <div class=""secondcontent"">
-                                    <p style=""text-align: center; color: #646464;"">{texto}</p>
+                                    <p style=""text-align: center; color: #646464; font-size: 16px;"">{texto}</p>
                                 </div>
                                 <div style=""width: 100%;"">
                                     <table cellpadding=""0"" cellspacing=""0"" 
                                         style=""width: 80%; margin: auto; min-width: 300px; border-collapse: collapse; background-color: white; border: solid; border-color: #1b2a4e;"">
                                         <tbody>
                                             <tr>
-                                                <td style=""padding: 10px;"">Puntos anteriores</td>
-                                                <td style=""padding: 10px; text-align: right;"">{puntos_anteriores.ToString("N0", new CultureInfo("es-MX"))}</td>
+                                                <td style=""padding: 20px 0px 0px 3em; font-size: 16px; color: #646464;"">Puntos anteriores</td>
+                                                <td style=""padding: 20px 3em 0px 0px; text-align: right; font-size: 16px; color: #646464;"">{puntos_anteriores.ToString("N0", new CultureInfo("es-MX"))}</td>
                                             </tr>
                                             <tr>
-                                                <td style=""padding: 10px;"">{descripcionPuntos}</td>
-                                                <td style=""padding: 10px; text-align: right;"">{puntos_acumulados.ToString("N0", new CultureInfo("es-MX"))}</td>
+                                                <td style=""padding: 5px 0px 20px 3em; font-size: 16px; color: #646464;"">{descripcionPuntos}</td>
+                                                <td style=""padding: 5px 3em 20px 0px; text-align: right; font-size: 16px; color: #646464;"">{puntos_acumulados.ToString("N0", new CultureInfo("es-MX"))}</td>
                                             </tr>
                                         </tbody>
                                         <tfoot>
                                             <tr style=""background-color: #1b2a4e; color: white;"">
-                                                <td style=""padding: 10px; font-weight: bold;"">PUNTOS TOTALES</td>
-                                                <td style=""padding: 10px; text-align: right;"">{puntos_totales.ToString("N0", new CultureInfo("es-MX"))}</td>
+                                                <td style=""padding: 0px 0px 0px 3em; font-weight: bold; font-size: 16px;"">PUNTOS TOTALES</td>
+                                                <td style=""padding: 0px 3em 0px 0px; text-align: right; font-size: 16px;"">{puntos_totales.ToString("N0", new CultureInfo("es-MX"))}</td>
                                             </tr>
                                         </tfoot>
                                     </table>

@@ -5,6 +5,7 @@ using api_preven_email_service.Helper;
 using Npgsql;
 using api_preven_email_service.Model;
 using api_preven_email_service.Model.Email;
+using Microsoft.IdentityModel.Tokens;
 
 namespace api_preven_email_service.Negocio.Agente{
     public class AgenteEmailNegocio{
@@ -21,16 +22,16 @@ namespace api_preven_email_service.Negocio.Agente{
             _apiResponse = new APIResponse();
         }
 
-        public async Task<APIResponse> AgenteEmailConsulta(Guid uuid, int id_usuario, int id_agente) {
+        public async Task<APIResponse> AgenteEmailConsulta(Guid uuid, int id_usuario, int id_agente, string email) {
             _log.Add(uuid + " INFO - Id Usuario: " + id_usuario + " | Id Agente: " + id_agente + " - Ingresa clase AgenteNegocio método AgenteConsulta");
             _apiResponse.uuid = uuid;
             _agenteEmailDAO = new AgenteEmailDAO(_log);
 
             try {
-                if (id_agente == 0) {
+                if (email.IsNullOrEmpty()) {
                     _apiResponse.respuesta = false;
                     _apiResponse.statusCode = HttpStatusCode.BadRequest;
-                    _apiResponse.mensaje = "El id debe ser diferente de cero.";
+                    _apiResponse.mensaje = "Se debe de proporcionar el email.";
                 } else if(_postgreSQLInterface == null)  {
                     _apiResponse.respuesta = false;
                     _apiResponse.statusCode = HttpStatusCode.BadRequest;
@@ -46,7 +47,7 @@ namespace api_preven_email_service.Negocio.Agente{
                     _apiResponse.statusCode = HttpStatusCode.OK;
                     _apiResponse.mensaje = "Consulta exitosa.";
 
-                    ResponseGetModel vRespuesta = await _agenteEmailDAO.AgenteEmailConsulta(uuid, id_agente, _session);
+                    ResponseGetModel vRespuesta = await _agenteEmailDAO.AgenteEmailConsulta(uuid, id_agente, email, _session);
 
                     if (vRespuesta.estatus){
                         if(vRespuesta.entidad != null){

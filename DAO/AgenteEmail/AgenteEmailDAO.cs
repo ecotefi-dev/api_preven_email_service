@@ -8,7 +8,7 @@ namespace api_preven_email_service.DAO.Agente{
     public class AgenteEmailDAO(LoggerService log) {
         private readonly LoggerService _log = log;
 
-        public async Task<ResponseGetModel> AgenteEmailConsulta(Guid uuid, int id_agente, NpgsqlConnection session) {
+        public async Task<ResponseGetModel> AgenteEmailConsulta(Guid uuid, int id_agente, string email, NpgsqlConnection session) {
             _log.Add(uuid + " INFO - Ingresa a clase AgenteEmailDAO método AgenteEmailConsulta");
             bool bandera = false;
             ResponseGetModel resultado = new();
@@ -23,9 +23,9 @@ namespace api_preven_email_service.DAO.Agente{
                              , fn_nombre_completo(primer_nombre, segundo_nombre, apellido_paterno, apellido_materno, 1) nombre_completo
                              , preven.fn_saldo_puntos(id_agente, id_empresa) saldo_puntos
                           FROM preven.agente
-                         WHERE id_agente = @IdAgente";
+                         WHERE email = @Email";
 
-                    var result = await session.QueryFirstOrDefaultAsync<EmailPuntosModel>(sql, new { IdAgente = id_agente });
+                    var result = await session.QueryFirstOrDefaultAsync<EmailPuntosModel>(sql, new { Email = email });
 
                     if (result != null) {
                         resultado.entidad = result;

@@ -76,14 +76,14 @@ namespace api_preven_email_service.Negocio.Email{
                             foreach(EmailPuntosModel item in listaEmailPuntosModel){
                                 emailObservacion = new()
                                 {
-                                    id_agente = item.id_agente,
+                                    email = item.email,
                                     puntos = item.puntos
                                 };
-                                APIResponse infoAgente = await new AgenteEmailNegocio(_log, _postgreSQLInterface).AgenteEmailConsulta(uuid, id_usuario, item.id_agente);
+                                APIResponse infoAgente = await new AgenteEmailNegocio(_log, _postgreSQLInterface).AgenteEmailConsulta(uuid, id_usuario, item.id_agente, item.email!);
                                 if(infoAgente.respuesta) {
                                     EmailPuntosModel infoAgenteEmail = (EmailPuntosModel)infoAgente.resultado;
                                     _log.Add(uuid + " INFO - EmailPuntosModel: " + _log.ConvertirModeloATexto(infoAgenteEmail));
-                                    emailObservacion.email = item.email;
+                                    emailObservacion.id_agente = infoAgenteEmail.id_agente;
                                     infoAgenteEmail.puntos = item.puntos;
                                     string body = EmailBody(infoAgenteEmail);
                                     _log.Add(body);

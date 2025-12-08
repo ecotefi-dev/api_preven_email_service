@@ -87,7 +87,7 @@ namespace api_preven_email_service.Negocio.Email{
                                     infoAgenteEmail.puntos = item.puntos;
                                     string body = EmailBody(infoAgenteEmail);
                                     _log.Add(body);
-                                    bool respuesta = await envioEmail(uuid, infoAgenteEmail.email!, "Actualización de Puntos PREVÉN", body);
+                                    bool respuesta = await envioEmail(uuid, infoAgenteEmail.email!, "PREVÉN - Actualización de puntos", body);
                                     if(respuesta)
                                         emailObservacion.observacion = "Correo enviado exitosamente al email: " + infoAgenteEmail.email;
                                     else 
@@ -247,11 +247,11 @@ namespace api_preven_email_service.Negocio.Email{
             
             if(emailPuntosModel.puntos > 0) {
                 leyenda.AppendLine($@"Hemos agregado puntos a tu usuario.");
-                texto.AppendLine($@"Te informamos que hemos agregado puntos adicionales a tu usuario en el Portal de Puntos PREVÉN.<br><br>Podrás consultar tus puntos iniciando sesión en <a href=""https://www.preven.mx/puntos"" target=""_blank"" style=""color:#4CB5F5; text-decoration: none;"">www.preven.mx/puntos</a> y buscar productos de tu interés en nuestro catálogo.");
+                texto.AppendLine($@"Te informamos que hemos agregado puntos adicionales a tu usuario en el Portal de Puntos PREVÉN.<br><br>Podrás consultar tus puntos iniciando sesión en <a href=""https://puntos.preven.mx/"" target=""_blank"" style=""color:#4CB5F5; text-decoration: none;"">puntos.preven.mx</a> y buscar productos de tu interés en nuestro catálogo.");
                 descripcionPuntos.AppendLine($@"Puntos acumulados.");
             } else {
                 leyenda.AppendLine($@"Hemos ajustado puntos a tu usuario.");
-                texto.AppendLine($@"Te informamos que hemos ajustado puntos a tu usuario en el Portal de Puntos PREVÉN.<br><br>Podrás consultar tus puntos iniciando sesión en <a href=""https://www.preven.mx/puntos"" target=""_blank"" style=""color:#4CB5F5; text-decoration: none;"">www.preven.mx/puntos</a> y buscar productos de tu interés en nuestro catálogo.");
+                texto.AppendLine($@"Te informamos que hemos ajustado puntos a tu usuario en el Portal de Puntos PREVÉN.<br><br>Podrás consultar tus puntos iniciando sesión en <a href=""https://puntos.preven.mx/"" target=""_blank"" style=""color:#4CB5F5; text-decoration: none;"">puntos.preven.mx</a> y buscar productos de tu interés en nuestro catálogo.");
                 descripcionPuntos.AppendLine($@"Puntos ajustados.");
             }
             
@@ -318,65 +318,95 @@ namespace api_preven_email_service.Negocio.Email{
                             }}
                         </style>
                     </head>
-                    <body style=""background-color: white;"">
-                        <div class=""container"">
-                            <div style=""text-align: left; padding: 0; margin: 0; background-color: white;"">
-                                <img src=""cid:ENCABEZADO_IMG"" alt=""Encabezado"" style=""display: block; width: 100%; max-width:750px; margin: 0; padding: 0;"">
-                            </div>
-                            <div class=""titulo"">
-                                <p>ACTUALIZACIÓN DE PUNTOS</p>
-                            </div>
-                            <div class=""firstcontent"">
-                                <p style=""color: #646464; font-size: 16px;"">Buen día {emailPuntosModel.nombres}</p>
-                                <p style=""font-weight: bold; font-size: 16px; text-align: center; color: #646464;"">{leyenda}</p>
-                                <div class=""secondcontent"">
-                                    <p style=""text-align: center; color: #646464; font-size: 16px;"">{texto}</p>
-                                </div>
-                                <div style=""width: 100%;"">
-                                    <table cellpadding=""0"" cellspacing=""0"" 
-                                        style=""width: 80%; margin: auto; min-width: 300px; border-collapse: collapse; background-color: white; border: solid; border-color: #1b2a4e;"">
-                                        <tbody>
-                                            <tr>
-                                                <td style=""padding: 20px 0px 0px 3em; font-size: 16px; color: #646464;"">Puntos anteriores</td>
-                                                <td style=""padding: 20px 3em 0px 0px; text-align: right; font-size: 16px; color: #646464;"">{puntos_anteriores.ToString("N0", new CultureInfo("es-MX"))}</td>
-                                            </tr>
-                                            <tr>
-                                                <td style=""padding: 5px 0px 20px 3em; font-size: 16px; color: #646464;"">{descripcionPuntos}</td>
-                                                <td style=""padding: 5px 3em 20px 0px; text-align: right; font-size: 16px; color: #646464;"">{puntos_acumulados.ToString("N0", new CultureInfo("es-MX"))}</td>
-                                            </tr>
-                                        </tbody>
-                                        <tfoot>
-                                            <tr style=""background-color: #1b2a4e; color: white;"">
-                                                <td style=""padding: 0px 0px 0px 3em; font-weight: bold; font-size: 16px;"">PUNTOS TOTALES</td>
-                                                <td style=""padding: 0px 3em 0px 0px; text-align: right; font-size: 16px;"">{puntos_totales.ToString("N0", new CultureInfo("es-MX"))}</td>
-                                            </tr>
-                                        </tfoot>
+                    <body style=""background-color: white; width: 100%;"">
+                        <table width=""100%"" cellpadding=""0"" cellspacing=""0"" border=""0"" style=""width: 100%; background-color: white;"">
+                            <tr>
+                                <td align=""center"">
+                                    <table width=""100%"" cellpadding=""0"" cellspacing=""0"" border=""0"" style=""max-width: 800px; width: 100%; border: 2px solid #1b2a4e; box-sizing: border-box;"">
+                                        <tr>
+                                            <td style=""padding: 0; margin: 0; background-color: white; text-align: left;"">
+                                                <img src=""cid:ENCABEZADO_IMG"" alt=""Encabezado"" width=""100%"" style=""display: block; width: 100%; max-width: 750px; margin: 0; padding: 0;"">
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td height=""70"" style=""text-align: center; font-size: 34px; font-weight: bold; color: #071f55; background-color: white;"">
+                                                <p>ACTUALIZACIÓN DE PUNTOS</p>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <table width=""80%"" align=""center"" cellpadding=""0"" cellspacing=""0"" border=""0"" style=""width: 80%; background-color: white;"">
+                                                    <tr>
+                                                        <td style=""font-size: 16px; color: #646464; text-align: justify;"">
+                                                            <p>Buen día {emailPuntosModel.nombres}</p>
+                                                            <p style=""font-weight: bold; text-align: center;"">{leyenda}</p>
+                                                            <p style=""text-align: center; color: #646464; font-size: 16px"">{texto}</p>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td align=""center"">
+                                                <table cellpadding=""0"" cellspacing=""0"" 
+                                                    style=""width: 80%; margin: auto; min-width: 300px; border-collapse: collapse; background-color: white; border: solid; border-color: #1b2a4e;"">
+                                                    <tbody>
+                                                        <tr>
+                                                            <td style=""padding: 20px 0px 0px 3em; font-size: 16px; color: #646464;"">Puntos anteriores</td>
+                                                            <td style=""padding: 20px 3em 0px 0px; text-align: right; font-size: 16px; color: #646464;"">{puntos_anteriores.ToString("N0", new CultureInfo("es-MX"))}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td style=""padding: 5px 0px 20px 3em; font-size: 16px; color: #646464;"">{descripcionPuntos}</td>
+                                                            <td style=""padding: 5px 3em 20px 0px; text-align: right; font-size: 16px; color: #646464;"">{puntos_acumulados.ToString("N0", new CultureInfo("es-MX"))}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                    <tfoot>
+                                                        <tr style=""background-color: #1b2a4e; color: white;"">
+                                                            <td style=""padding: 0px 0px 0px 3em; font-weight: bold; font-size: 16px;"">PUNTOS TOTALES</td>
+                                                            <td style=""padding: 0px 3em 0px 0px; text-align: right; font-size: 16px;"">{puntos_totales.ToString("N0", new CultureInfo("es-MX"))}</td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td align=""center"">
+                                                <table width=""100%"" cellpadding=""0"" cellspacing=""0"" border=""0"" style=""max-width: 800px; width: 100%; background-color: white;"">
+                                                    <tr>
+                                                        <td style=""text-align: center; font-weight: bold; font-size: 18px; color: #1b2a4e; padding-top: 20px;"">
+                                                            PREVÉN | Tu socio de seguros
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>
+                                                            <table style=""width: 100%; border-collapse: collapse;"">
+                                                                <tr>
+                                                                    <td style=""padding: 0px 0px 10px 20px; font-size: 13px; text-align: left; font-weight: bold;"">
+                                                                        <a href=""https://preven.mx"" target=""_blank"" style=""text-decoration: none !important;"">
+                                                                        <span style=""border-bottom: none; color: #1b2a4e;"">www.preven.mx</span>
+                                                                        </a>
+                                                                    </td>
+                                                                    <td style=""padding: 0px 20px 10px 0px; font-size: 13px; text-align: right; font-weight: bold;"">
+                                                                        <span style=""vertical-align: middle; color: #1b2a4e;"">prevenmx</span>
+                                                                        &nbsp;
+                                                                        <a href=""https://www.facebook.com/prevenmx"" target=""_blank"" style=""text-decoration: none !important;"">
+                                                                        <img src=""cid:FACEBOOK_IMG"" alt=""Facebook"" width=""24"" height=""24"" style=""width: 24px; height: 24px; vertical-align: middle; border: 0;"">
+                                                                        </a>
+                                                                        <a href=""https://www.instagram.com/prevenmx"" target=""_blank"" style=""text-decoration: none !important;"">
+                                                                        <img src=""cid:INSTAGRAM_IMG"" alt=""Instagram"" width=""24"" height=""24"" style=""width: 24px; height: 24px; vertical-align: middle; border: 0;"">
+                                                                        </a>
+                                                                    </td>
+                                                                </tr>
+                                                            </table>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
                                     </table>
-                                </div>
-                            </div>
-                            <div class=""footer"">
-                                <p style=""text-align: center; font-weight: bold; color: #071f55;"">PREVÉN | Tu socio de seguros</p>
-                                <table style=""width: 100%; border-collapse: collapse;"">
-                                    <tr>
-                                        <td style=""padding: 0px 0px 10px 20px; font-size: 13px; text-align: left; font-weight: bold;"">
-                                            <a href=""https://preven.mx"" target=""_blank"" style=""text-decoration: none !important;"">
-                                            <span style=""border-bottom: none; color: #1b2a4e;"">www.preven.mx</span>
-                                            </a>
-                                        </td>
-                                        <td style=""padding: 0px 20px 10px 0px; font-size: 13px; text-align: right; font-weight: bold;"">
-                                            <span style=""vertical-align: middle;"">prevenmx</span>
-                                            &nbsp;
-                                            <a href=""https://www.facebook.com/prevenmx"" target=""_blank"" style=""text-decoration: none !important;"">
-                                            <img src=""cid:FACEBOOK_IMG"" alt=""Facebook"" width=""24px"" height=""24px"" style=""vertical-align: middle;"">
-                                            </a>
-                                            <a href=""https://www.instagram.com/prevenmx"" target=""_blank"" style=""text-decoration: none !important;"">
-                                            <img src=""cid:INSTAGRAM_IMG"" alt=""Instagram"" width=""24px"" height=""24px"" style=""vertical-align: middle;"">
-                                            </a>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>
-                        </div>
+                                </td>
+                            </tr>
+                        </table>
                     </body>
                 </html>";
 

@@ -160,8 +160,8 @@ namespace api_preven_email_service.Negocio.Empresa{
 
             return _apiResponse;
         }
-        public async Task<APIResponse> EmpresaParametroEmail(Guid uuid, int id_usuario) {
-            _log.Add(uuid + " INFO - Id Usuario: " + id_usuario + " - Ingresa clase EmpresaParametroNegocio método EmpresaParametroEmail");
+        public async Task<APIResponse> EmpresaParametroEmail_OLD(Guid uuid, int id_usuario) {
+            _log.Add(uuid + " INFO - Id Usuario: " + id_usuario + " - Ingresa clase EmpresaParametroNegocio método EmpresaParametroEmail_OLD");
             _apiResponse.uuid = uuid;
             _empresaParametroDAO = new EmpresaParametroDAO(_log);
 
@@ -173,15 +173,15 @@ namespace api_preven_email_service.Negocio.Empresa{
                 } else {
                     _session = _postgreSQLInterface.dbConnection();
                     _session.Open();
-                    _log.Add(uuid + " INFO - Crea conexión clase EmpresaParametroNegocio método EmpresaParametroEmail");
+                    _log.Add(uuid + " INFO - Crea conexión clase EmpresaParametroNegocio método EmpresaParametroEmail_OLD");
                     _transaction = _session.BeginTransaction();
-                    _log.Add(uuid + " INFO - Crea transacción clase EmpresaParametroNegocio método EmpresaParametroEmail");
+                    _log.Add(uuid + " INFO - Crea transacción clase EmpresaParametroNegocio método EmpresaParametroEmail_OLD");
 
                     _apiResponse.respuesta = true;
                     _apiResponse.statusCode = HttpStatusCode.OK;
                     _apiResponse.mensaje = "Consulta exitosa.";
 
-                    ResponseGetModel vRespuesta = await _empresaParametroDAO.EmpresaParametroEmail(uuid, _session);
+                    ResponseGetModel vRespuesta = await _empresaParametroDAO.EmpresaParametroEmail_OLD(uuid, _session);
 
                     if (vRespuesta.estatus){
                         if(vRespuesta.entidad != null){
@@ -200,30 +200,89 @@ namespace api_preven_email_service.Negocio.Empresa{
 
                     _transaction.Commit();
                     _transaction.Dispose();
-                    _log.Add(uuid + " INFO - Commit clase EmpresaParametroNegocio método EmpresaParametroEmail");
+                    _log.Add(uuid + " INFO - Commit clase EmpresaParametroNegocio método EmpresaParametroEmail_OLD");
                     _session.Close();
-                    _log.Add(uuid + " INFO - Cierra conexión clase EmpresaParametroNegocio método EmpresaParametroEmail");
+                    _log.Add(uuid + " INFO - Cierra conexión clase EmpresaParametroNegocio método EmpresaParametroEmail_OLD");
                 }
             } catch (Exception ex) {
                 _apiResponse.respuesta = false;
                 _apiResponse.statusCode = HttpStatusCode.BadRequest;
                 _apiResponse.mensaje = "Ocurrio un error en el proceso. Comunicate con el administrador del sistema.";
-                _apiResponse.descripcion = "Excepción en clase EmpresaParametroNegocio método EmpresaParametroEmail: " + ex.ToString();
-                _log.Add(uuid + " ERROR - Excepción en clase EmpresaParametroNegocio método EmpresaParametroEmail: " + ex.ToString());
+                _apiResponse.descripcion = "Excepción en clase EmpresaParametroNegocio método EmpresaParametroEmail_OLD: " + ex.ToString();
+                _log.Add(uuid + " ERROR - Excepción en clase EmpresaParametroNegocio método EmpresaParametroEmail_OLD: " + ex.ToString());
 
                 if (_session != null) {
                     if(_transaction != null) {
                         _transaction.Rollback();
-                        _log.Add(uuid + " INFO - Rollback clase EmpresaParametroNegocio método EmpresaParametroEmail");
+                        _log.Add(uuid + " INFO - Rollback clase EmpresaParametroNegocio método EmpresaParametroEmail_OLD");
                         _session.Close();
-                        _log.Add(uuid + " INFO - Cierra conexión clase EmpresaParametroNegocio método EmpresaParametroEmail");
+                        _log.Add(uuid + " INFO - Cierra conexión clase EmpresaParametroNegocio método EmpresaParametroEmail_OLD");
                     }
                 }
             } finally {
                 if (_session != null) {
                     _session.Dispose();
                     _session.Close();
-                    _log.Add(uuid + " INFO - Finally Cierra conexión clase EmpresaParametroNegocio método EmpresaParametroEmail");
+                    _log.Add(uuid + " INFO - Finally Cierra conexión clase EmpresaParametroNegocio método EmpresaParametroEmail_OLD");
+                }
+            }
+
+            return _apiResponse;
+        }
+        public async Task<APIResponse> EmpresaParametroEmail(Guid uuid, int id_usuario)
+        {
+            _apiResponse.uuid = uuid;
+            NpgsqlConnection? session = null;
+
+            try
+            {
+                if(_postgreSQLInterface == null)  {
+                    _apiResponse.respuesta = false;
+                    _apiResponse.statusCode = HttpStatusCode.BadRequest;
+                    _apiResponse.mensaje = "La interfaz de la conexión no se encuentra referenciada.";
+                } else {
+
+                    session = _postgreSQLInterface.dbConnection();
+
+                    await session.OpenAsync();
+
+                    ResponseGetModel resultado =
+                        await new EmpresaParametroDAO(_log).EmpresaParametroEmail(uuid, session);
+
+                    if (!resultado.estatus)
+                    {
+                        _apiResponse.respuesta = false;
+                        _apiResponse.statusCode = HttpStatusCode.InternalServerError;
+                        _apiResponse.mensaje = "No fue posible obtener la configuración del correo.";
+                        return _apiResponse;
+                    }
+
+                    if (resultado.entidad == null)
+                    {
+                        _apiResponse.respuesta = false;
+                        _apiResponse.statusCode = HttpStatusCode.NotFound;
+                        _apiResponse.mensaje = "No se encontró la configuración del correo.";
+                        return _apiResponse;
+                    }
+
+                    _apiResponse.respuesta = true;
+                    _apiResponse.statusCode = HttpStatusCode.OK;
+                    _apiResponse.resultado = resultado.entidad;
+                }
+            }
+            catch (Exception ex)
+            {
+                _apiResponse.respuesta = false;
+                _apiResponse.statusCode = HttpStatusCode.InternalServerError;
+                _apiResponse.mensaje = "Ocurrió un error al consultar la configuración del correo.";
+                _apiResponse.descripcion = ex.ToString();
+                _log.Add(uuid + " ERROR - EmpresaParametroNegocio método EmpresaParametroEmail: " + ex);
+            }
+            finally
+            {
+                if (session != null)
+                {
+                    await session.DisposeAsync();
                 }
             }
 

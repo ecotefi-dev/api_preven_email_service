@@ -1,16 +1,17 @@
 using System.Globalization;
 using System.Net;
-using System.Net.Mail;
-using System.Net.Mime;
 using System.Text;
+
+using System.Net.Http.Headers;
+using System.Text.Json;
+using Microsoft.Identity.Client;
+
 using api_preven_email_service.DAO;
 using api_preven_email_service.Helper;
 using api_preven_email_service.Model.Email;
 using api_preven_email_service.Model.Empresa;
 using api_preven_email_service.Negocio.Agente;
 using api_preven_email_service.Negocio.Empresa;
-using Microsoft.IdentityModel.Tokens;
-using Npgsql;
 
 namespace api_preven_email_service.Negocio.Email{
     public class EmailNegocio
@@ -18,14 +19,7 @@ namespace api_preven_email_service.Negocio.Email{
         private readonly LoggerService _log;
         protected APIResponse _apiResponse;
         private readonly PostgreSQLInterface _postgreSQLInterface;
-        private NpgsqlConnection? _session;
-        private NpgsqlTransaction? _transaction;
-        private string smtpHost = string.Empty;
-        private int smtpPort = 0;
-        private string smtpUser = string.Empty;
-        private string smtpPass = string.Empty;
-        private string email_notifica_pedido = string.Empty;
-
+        
         public EmailNegocio(LoggerService log, PostgreSQLInterface postgreSQLInterface){
             _log = log;
             _postgreSQLInterface = postgreSQLInterface;
@@ -43,202 +37,295 @@ namespace api_preven_email_service.Negocio.Email{
                     _apiResponse.respuesta = false;
                     _apiResponse.statusCode = HttpStatusCode.InternalServerError;
                     _apiResponse.mensaje = "La interfaz de la conexión no se encuentra referenciada. Comunicate con el administrador del sistema.";
+                    return _apiResponse;
                 } else {
-                    _session = _postgreSQLInterface.dbConnection();
-                    _session.Open();
-                    _log.Add(uuid + " INFO - Crea conexión clase EmailNegocio método Puntos");
-                    _transaction = _session.BeginTransaction();
-                    _log.Add(uuid + " INFO - Crea transacción clase EmailNegocio método Puntos");
+                    
+                    // ==========================================================
+                    // CONFIGURACIÓN MICROSOFT GRAPH
+                    // ==========================================================
+                    EmailConfiguracionModel configuracionEmail = await ObtenerConfiguracionEmail(uuid, id_usuario);
 
+                    if (string.IsNullOrWhiteSpace(configuracionEmail.notifica_puntos))
+                    {
+                        throw new Exception(
+                            "No se encuentra configurado NOTIFICA_PUNTOS."
+                        );
+                    }
+
+                    List<EmailPuntosModel> listaObservacion = [];
+
+                    // ==========================================================
+                    // PROCESAR CORREOS
+                    // ==========================================================
+
+                    foreach(EmailPuntosModel item in listaEmailPuntosModel){
+                        EmailPuntosModel emailObservacion = new()
+                        {
+                            email = item.email,
+                            puntos = item.puntos
+                        };
+                        APIResponse infoAgente = await new AgenteEmailNegocio(_log, _postgreSQLInterface).AgenteEmailConsulta(uuid, id_usuario, item.id_agente, item.email!);
+                        if(infoAgente.respuesta) {
+                            EmailPuntosModel infoAgenteEmail = (EmailPuntosModel)infoAgente.resultado;
+                            _log.Add(uuid + " INFO - EmailPuntosModel: " + _log.ConvertirModeloATexto(infoAgenteEmail));
+                            emailObservacion.id_agente = infoAgenteEmail.id_agente;
+                            infoAgenteEmail.puntos = item.puntos;
+                            string body = EmailBody(infoAgenteEmail);
+                            bool respuesta = await envioEmail(uuid, configuracionEmail, configuracionEmail.notifica_puntos, infoAgenteEmail.email!, "PREVÉN - Actualización de puntos", body, true);
+                            if(respuesta)
+                                emailObservacion.observacion = "Correo enviado exitosamente al email: " + infoAgenteEmail.email;
+                            else 
+                                emailObservacion.observacion = "Ocurrio un error al enviar el correo al email: " + infoAgenteEmail.email;
+                        } else {
+                            emailObservacion.email = item.email;
+                            emailObservacion.observacion = "No se encontro el agente.";
+                        }
+
+                        listaObservacion.Add(emailObservacion);
+                    }
+                    
                     _apiResponse.respuesta = true;
                     _apiResponse.statusCode = HttpStatusCode.OK;
-                    _apiResponse.mensaje = "Envío exitoso.";
-
-                    APIResponse responseSMTP = await new EmpresaParametroNegocio(_log, _postgreSQLInterface).EmpresaParametroEmail(uuid, id_usuario);
-
-                    if(responseSMTP.respuesta){
-                        if(responseSMTP.resultado != null){
-                            SMTPModel smtpModel = (SMTPModel)responseSMTP.resultado;
-                            smtpHost = smtpModel.host;
-                            smtpPort = smtpModel.port;
-                            smtpUser = smtpModel.user;
-                            smtpPass = smtpModel.pass;
-
-                            APIResponse responseNP = await new EmpresaParametroNegocio(_log, _postgreSQLInterface).EmpresaParametroLista(uuid, id_usuario, 0, "NOTIFICA_PUNTOS", true);
-                            if(responseNP.respuesta){
-                                List<EmpresaParametroModel> sysParNP = (List<EmpresaParametroModel>)responseNP.resultado;
-                                email_notifica_pedido = sysParNP[0].valor;
-                            }
-
-                            List<EmailPuntosModel> listaObservacion = [];
-                            EmailPuntosModel emailObservacion = new();
-
-                            foreach(EmailPuntosModel item in listaEmailPuntosModel){
-                                emailObservacion = new()
-                                {
-                                    email = item.email,
-                                    puntos = item.puntos
-                                };
-                                APIResponse infoAgente = await new AgenteEmailNegocio(_log, _postgreSQLInterface).AgenteEmailConsulta(uuid, id_usuario, item.id_agente, item.email!);
-                                if(infoAgente.respuesta) {
-                                    EmailPuntosModel infoAgenteEmail = (EmailPuntosModel)infoAgente.resultado;
-                                    _log.Add(uuid + " INFO - EmailPuntosModel: " + _log.ConvertirModeloATexto(infoAgenteEmail));
-                                    emailObservacion.id_agente = infoAgenteEmail.id_agente;
-                                    infoAgenteEmail.puntos = item.puntos;
-                                    string body = EmailBody(infoAgenteEmail);
-                                    _log.Add(body);
-                                    bool respuesta = await envioEmail(uuid, infoAgenteEmail.email!, "PREVÉN - Actualización de puntos", body);
-                                    if(respuesta)
-                                        emailObservacion.observacion = "Correo enviado exitosamente al email: " + infoAgenteEmail.email;
-                                    else 
-                                        emailObservacion.observacion = "Ocurrio un error al enviar el correo al email: " + infoAgenteEmail.email;
-                                } else {
-                                    emailObservacion.email = item.email;
-                                    emailObservacion.observacion = "No se encontro el agente.";
-                                }
-
-                                listaObservacion.Add(emailObservacion);
-                            }
-                            
-                            _apiResponse.resultado = listaObservacion;
-                        } else { 
-                            _apiResponse.respuesta = false;
-                            _apiResponse.statusCode = HttpStatusCode.NotFound;
-                            _apiResponse.mensaje = "No se encontraron registros.";
-                        }
-                    } else { //Entro catch del DAO
-                        _apiResponse.respuesta = false;
-                        _apiResponse.statusCode = HttpStatusCode.InternalServerError;
-                        _apiResponse.mensaje = "Ocurrio un error en el proceso. Comunicate con el administrador del sistema.";
-                    }
+                    _apiResponse.mensaje = "Proceso de envío finalizado.";
+                    _apiResponse.resultado = listaObservacion;
                 }
             } catch (Exception ex) {
                 _apiResponse.respuesta = false;
                 _apiResponse.statusCode = HttpStatusCode.InternalServerError;
                 _apiResponse.mensaje = "Ocurrio un error en el proceso. Comunicate con el administrador del sistema.";
                 _apiResponse.descripcion = "Excepción en clase EmailNegocio método Puntos: " + ex.ToString();
-                _log.Add(uuid + " ERROR - Excepción en clase EmailNegocio método Puntos: " + ex.ToString());
-
-                if (_session != null) {
-                    if(_transaction != null) {
-                        _transaction.Rollback();
-                        _log.Add(uuid + " INFO - Rollback clase EmailNegocio método Puntos");
-                        _session.Close();
-                        _log.Add(uuid + " INFO - Cierra conexión clase EmailNegocio método Puntos");
-                    }
-                }
-            } finally {
-                if (_session != null) {
-                    _session.Dispose();
-                    _session.Close();
-                    _log.Add(uuid + " INFO - Finally Cierra conexión clase EmailNegocio método Puntos");
-                }
-            }
+                _log.Add(uuid + " ERROR - Excepción en clase EmailNegocio método Puntos: " + ex.ToString());  
+            } 
 
             return _apiResponse;
         }
-        private async Task<bool> envioEmail(Guid uuid, string recipientEmail, string subject, string body)
+        private async Task<bool> envioEmail(Guid uuid, EmailConfiguracionModel configuracion, string senderEmail, string recipientEmail, string subject, string body, bool incluirImagenes = true)
         {
             _log.Add(uuid + " INFO - clase EmailNegocio método envioEmail");
             bool respuesta = true;
 
             try {
-                //recipientEmail = "hugo.glz.mora@gmail.com";
-                SmtpClient mailClient = new(smtpHost, smtpPort);
-                MailMessage mailMessage = new(smtpUser, recipientEmail, subject, body)
+                if (string.IsNullOrWhiteSpace(senderEmail))
                 {
-                    IsBodyHtml = true
-                };
+                    throw new Exception(
+                        "El correo remitente no se encuentra configurado."
+                    );
+                }
 
-                if(!email_notifica_pedido!.IsNullOrEmpty())
-                    mailMessage.CC.Add(email_notifica_pedido);
+                // ==========================================================
+                // MICROSOFT ENTRA ID
+                // ==========================================================
 
-                NetworkCredential mailAuthentication = new(smtpUser, smtpPass);
-                mailClient.DeliveryMethod = SmtpDeliveryMethod.Network;
-                mailClient.EnableSsl = false;
-                mailClient.UseDefaultCredentials = false;
-                mailClient.Credentials = mailAuthentication;
+                IConfidentialClientApplication app =
+                    ConfidentialClientApplicationBuilder
+                        .Create(configuracion.client_id)
+                        .WithClientSecret(
+                            configuracion.client_secret
+                        )
+                        .WithAuthority(
+                            $"https://login.microsoftonline.com/" +
+                            $"{configuracion.tenant_id}"
+                        )
+                        .Build();
 
-                // Preparar lista de recursos
-                List<LinkedResource> linkedResources = [];
+                string[] scopes =
+                [
+                    "https://graph.microsoft.com/.default"
+                ];
+
+                AuthenticationResult authResult =
+                    await app
+                        .AcquireTokenForClient(scopes)
+                        .ExecuteAsync();
+
+                _log.Add(uuid + " INFO - Token Microsoft Graph obtenido correctamente");
+
+                // ==========================================================
+                // HTML
+                // ==========================================================
+
                 string htmlBody = body;
+                List<object> attachments = [];
 
-                // Imagen encabezado
-                string imagePath = Path.Combine(AppContext.BaseDirectory, "images", "encabezado_1.png");
-                if (File.Exists(imagePath))
+                // ==========================================================
+                // IMÁGENES INLINE
+                // ==========================================================
+
+                if (incluirImagenes)
                 {
-                    string contentId = Guid.NewGuid().ToString();
-                    htmlBody = htmlBody.Replace("ENCABEZADO_IMG", contentId);
+                    // ------------------------------------------------------
+                    // ENCABEZADO
+                    // ------------------------------------------------------
 
-                    LinkedResource inlineImage = new(imagePath, MediaTypeNames.Image.Jpeg)
+                    string imagePath = Path.Combine(AppContext.BaseDirectory, "images", "encabezado_1.png");
+
+                    if (File.Exists(imagePath))
                     {
-                        ContentId = contentId,
-                        TransferEncoding = TransferEncoding.Base64,
-                        ContentType = new ContentType(MediaTypeNames.Image.Jpeg)
-                    };
-                    linkedResources.Add(inlineImage);
-                }
-                else
-                {
-                    _log.Add($"ERROR - Imagen no encontrada: {imagePath}");
-                }
+                        string contentId = Guid.NewGuid().ToString();
 
-                string imagePathFacebook = Path.Combine(AppContext.BaseDirectory, "images", "ic_facebook.png");
-                if (File.Exists(imagePathFacebook))
-                {
-                    string contentId = Guid.NewGuid().ToString();
-                    htmlBody = htmlBody.Replace("FACEBOOK_IMG", contentId);
+                        htmlBody = htmlBody.Replace("ENCABEZADO_IMG", contentId);
 
-                    LinkedResource inlineImage = new(imagePathFacebook, MediaTypeNames.Image.Jpeg)
+                        attachments.Add(
+                            new
+                            {
+                                odata_type = "#microsoft.graph.fileAttachment",
+                                name = "encabezado_1.png",
+                                contentType = "image/png",
+                                contentId = contentId,
+                                isInline = true,
+                                contentBytes = Convert.ToBase64String(await File.ReadAllBytesAsync(imagePath) )
+                            }
+                        );
+                    }
+                    else
                     {
-                        ContentId = contentId,
-                        TransferEncoding = TransferEncoding.Base64,
-                        ContentType = new ContentType(MediaTypeNames.Image.Jpeg)
-                    };
-                    linkedResources.Add(inlineImage);
-                }
-                else
-                {
-                    _log.Add($"ERROR - Imagen no encontrada: {imagePathFacebook}");
-                }
+                        _log.Add(uuid + $" ERROR - Imagen no encontrada: {imagePath}");
+                    }
 
-                string imagePathInstagram = Path.Combine(AppContext.BaseDirectory, "images", "ic_instagram.png");
-                if (File.Exists(imagePathInstagram))
-                {
-                    string contentId = Guid.NewGuid().ToString();
-                    htmlBody = htmlBody.Replace("INSTAGRAM_IMG", contentId);
 
-                    LinkedResource inlineImage = new(imagePathInstagram, MediaTypeNames.Image.Jpeg)
+                    // ------------------------------------------------------
+                    // FACEBOOK
+                    // ------------------------------------------------------
+
+                    string imagePathFacebook = Path.Combine(AppContext.BaseDirectory, "images", "ic_facebook.png");
+
+                    if (File.Exists(imagePathFacebook))
                     {
-                        ContentId = contentId,
-                        TransferEncoding = TransferEncoding.Base64,
-                        ContentType = new ContentType(MediaTypeNames.Image.Jpeg)
+                        string contentId = Guid.NewGuid().ToString();
+                        htmlBody = htmlBody.Replace("FACEBOOK_IMG", contentId);
+
+                        attachments.Add(
+                            new
+                            {
+                                odata_type = "#microsoft.graph.fileAttachment",
+                                name = "ic_facebook.png",
+                                contentType = "image/png",
+                                contentId = contentId,
+                                isInline = true,
+                                contentBytes = Convert.ToBase64String(await File.ReadAllBytesAsync(imagePathFacebook))
+                            }
+                        );
+                    }
+                    else
+                    {
+                        _log.Add(uuid + $" ERROR - Imagen no encontrada: {imagePathFacebook}");
+                    }
+
+
+                    // ------------------------------------------------------
+                    // INSTAGRAM
+                    // ------------------------------------------------------
+
+                    string imagePathInstagram = Path.Combine(AppContext.BaseDirectory, "images", "ic_instagram.png");
+
+                    if (File.Exists(imagePathInstagram))
+                    {
+                        string contentId = Guid.NewGuid().ToString();
+
+                        htmlBody = htmlBody.Replace("INSTAGRAM_IMG", contentId);
+
+                        attachments.Add(
+                            new
+                            {
+                                odata_type = "#microsoft.graph.fileAttachment",
+                                name = "ic_instagram.png",
+                                contentType = "image/png",
+                                contentId = contentId,
+                                isInline = true,
+                                contentBytes = Convert.ToBase64String(await File.ReadAllBytesAsync(imagePathInstagram))
+                            }
+                        );
+                    }
+                    else
+                    {
+                        _log.Add(uuid + $" ERROR - Imagen no encontrada: {imagePathInstagram}");
+                    }
+                }
+
+                // ==========================================================
+                // MENSAJE
+                // ==========================================================
+
+                var email =
+                    new
+                    {
+                        message =
+                            new
+                            {
+                                subject = subject,
+                                body = new { contentType = "HTML", content = htmlBody },
+                                toRecipients = new[] { new { emailAddress = new { address = recipientEmail } } },
+                                // El remitente recibe una copia.
+                                ccRecipients = new[] { new { emailAddress = new { address = senderEmail } } },
+                                attachments = attachments
+                            },
+                        saveToSentItems = true
                     };
-                    linkedResources.Add(inlineImage);
-                }
-                else
+
+
+                JsonSerializerOptions options = new() {PropertyNamingPolicy = JsonNamingPolicy.CamelCase};
+                string json = JsonSerializer.Serialize(email, options);
+
+
+                // Transformar odata_type en @odata.type
+                json = json.Replace("\"odata_type\"", "\"@odata.type\"");
+
+                // ==========================================================
+                // MICROSOFT GRAPH
+                // ==========================================================
+
+                using HttpClient httpClient = new();
+
+                httpClient
+                    .DefaultRequestHeaders
+                    .Authorization = new AuthenticationHeaderValue("Bearer", authResult.AccessToken);
+
+                using StringContent content = new(json, Encoding.UTF8, "application/json");
+
+                string url = "https://graph.microsoft.com/v1.0/users/" + Uri.EscapeDataString(senderEmail) + "/sendMail";
+
+                _log.Add(
+                    uuid +
+                    $" INFO - Enviando correo mediante Microsoft Graph. " +
+                    $"FROM: {senderEmail} - " +
+                    $"TO: {recipientEmail} - " +
+                    $"CC: {senderEmail}"
+                );
+
+                HttpResponseMessage response = await httpClient.PostAsync(url, content);
+
+                if (!response.IsSuccessStatusCode)
                 {
-                    _log.Add($"ERROR - Imagen no encontrada: {imagePathInstagram}");
+                    string error = await response.Content.ReadAsStringAsync();
+
+                    _log.Add(
+                        uuid +
+                        " ERROR - Microsoft Graph - " +
+                        $"HTTP {(int)response.StatusCode} " +
+                        $"{response.StatusCode} - " +
+                        error
+                    );
+
+                    return false;
                 }
 
-                // Crear una sola vista HTML
-                AlternateView htmlView = AlternateView.CreateAlternateViewFromString(htmlBody, null, MediaTypeNames.Text.Html);
-                foreach (var resource in linkedResources)
-                {
-                    htmlView.LinkedResources.Add(resource);
-                }
 
-                mailMessage.AlternateViews.Add(htmlView);
-
-                await mailClient.SendMailAsync(mailMessage);
+                _log.Add(uuid + " INFO - Microsoft Graph aceptó correctamente el correo.");
                 _log.Add(uuid + $@" INFO - Email enviado a: {recipientEmail}");
 
-            } catch (Exception ex) {
-                _log.Add(uuid + " ERROR - Excepción en clase EmailNegocio método envioEmail: " + ex.ToString());
-                respuesta = false;
+                return true;
+                
+            } 
+            catch (MsalServiceException ex)
+            {
+                _log.Add(uuid + $" ERROR - Microsoft Entra ID / MSAL - ErrorCode: {ex.ErrorCode} - StatusCode: {ex.StatusCode} - " + ex);
+                return false;
             }
-
-            return respuesta;
+            catch (Exception ex)
+            {
+                _log.Add(uuid + " ERROR - Excepción en clase EmailNegocio método EnvioEmail: " + ex);
+                return false;
+            }
         }
         private string EmailBody(EmailPuntosModel emailPuntosModel){
             StringBuilder leyenda = new();
@@ -411,6 +498,477 @@ namespace api_preven_email_service.Negocio.Email{
                 </html>";
 
             return body;
+        }
+        private async Task<EmailConfiguracionModel>ObtenerConfiguracionEmail(Guid uuid, int id_usuario)
+        {
+            APIResponse response = await new EmpresaParametroNegocio(_log, _postgreSQLInterface).EmpresaParametroEmail(uuid, id_usuario);
+
+            if (!response.respuesta ||
+                response.resultado == null)
+            {
+                throw new Exception(
+                    "No fue posible obtener la configuración de Microsoft Exchange."
+                );
+            }
+
+            EmailConfiguracionModel configuracion = (EmailConfiguracionModel)response.resultado;
+            ValidarConfiguracionEmail(configuracion);
+            return configuracion;
+        }
+        private void ValidarConfiguracionEmail(EmailConfiguracionModel configuracion)
+        {
+            if (string.IsNullOrWhiteSpace(configuracion.tenant_id))
+                throw new Exception("No se encuentra configurado EMAIL_TENANT_ID.");
+
+            if (string.IsNullOrWhiteSpace(configuracion.client_id))
+                throw new Exception("No se encuentra configurado EMAIL_CLIENT_ID.");
+
+            if (string.IsNullOrWhiteSpace(configuracion.client_secret))
+                throw new Exception("No se encuentra configurado EMAIL_CLIENT_SECRET.");
+        }
+        public async Task<APIResponse> Prueba(Guid uuid, int id_usuario, string recipientEmail)
+        {
+            _log.Add(uuid + " INFO - Id Usuario: " + id_usuario + " - Ingresa clase EmailNegocio método Prueba");
+
+            APIResponse response = new()
+            {
+                uuid = uuid
+            };
+
+
+            try
+            {
+                // Una sola consulta a empresa_parametro.
+                EmailConfiguracionModel configuracion = await ObtenerConfiguracionEmail(uuid, id_usuario);
+
+                if (string.IsNullOrWhiteSpace(configuracion.notifica_puntos))
+                {
+                    throw new Exception(
+                        "No se encuentra configurado NOTIFICA_PUNTOS."
+                    );
+                }
+
+
+                string subject =
+                    "PREVÉN - Prueba de envío de correo";
+
+
+                string body = $@"
+                <!DOCTYPE html PUBLIC ""-//W3C//DTD XHTML 1.0 Transitional//EN""
+                    ""http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"">
+
+                <html xmlns=""http://www.w3.org/1999/xhtml"">
+                <head>
+                    <meta http-equiv=""Content-Type""
+                        content=""text/html; charset=utf-8"">
+
+                    <meta name=""viewport""
+                        content=""width=device-width, initial-scale=1.0"">
+
+                    <title>PREVÉN | Prueba de correo</title>
+                </head>
+
+                <body style=""
+                    margin: 0;
+                    padding: 10px;
+                    background-color: #ffffff;
+                    font-family: Arial, Helvetica, sans-serif;
+                    color: #646464;
+                "">
+
+                    <table width=""100%""
+                        cellpadding=""0""
+                        cellspacing=""0""
+                        border=""0""
+                        style=""background-color: #ffffff;"">
+
+                        <tr>
+                            <td align=""center"">
+
+                                <!-- ========================================= -->
+                                <!-- CONTENEDOR PRINCIPAL -->
+                                <!-- ========================================= -->
+
+                                <table width=""100%""
+                                    cellpadding=""0""
+                                    cellspacing=""0""
+                                    border=""0""
+                                    style=""
+                                        max-width: 800px;
+                                        width: 100%;
+                                        border: 2px solid #1b2a4e;
+                                        background-color: #ffffff;
+                                    "">
+
+
+                                    <!-- ===================================== -->
+                                    <!-- ENCABEZADO -->
+                                    <!-- ===================================== -->
+
+                                    <tr>
+                                        <td style=""
+                                            padding: 0;
+                                            margin: 0;
+                                            text-align: left;
+                                            background-color: #ffffff;
+                                        "">
+
+                                            <img
+                                                src=""cid:ENCABEZADO_IMG""
+                                                alt=""PREVÉN - Portal de Puntos""
+                                                width=""100%""
+                                                style=""
+                                                    display: block;
+                                                    width: 100%;
+                                                    max-width: 750px;
+                                                    margin: 0;
+                                                    padding: 0;
+                                                    border: 0;
+                                                "">
+
+                                        </td>
+                                    </tr>
+
+
+                                    <!-- ===================================== -->
+                                    <!-- TÍTULO -->
+                                    <!-- ===================================== -->
+
+                                    <tr>
+                                        <td style=""
+                                            padding: 35px 20px 15px 20px;
+                                            text-align: center;
+                                            font-size: 32px;
+                                            font-weight: bold;
+                                            color: #071f55;
+                                        "">
+
+                                            PRUEBA DE ENVÍO DE CORREO
+
+                                        </td>
+                                    </tr>
+
+
+                                    <!-- ===================================== -->
+                                    <!-- CONTENIDO -->
+                                    <!-- ===================================== -->
+
+                                    <tr>
+                                        <td align=""center"">
+
+                                            <table width=""80%""
+                                                cellpadding=""0""
+                                                cellspacing=""0""
+                                                border=""0"">
+
+                                                <tr>
+                                                    <td style=""
+                                                        padding: 20px 0;
+                                                        font-size: 16px;
+                                                        line-height: 24px;
+                                                        color: #646464;
+                                                        text-align: center;
+                                                    "">
+
+                                                        <p>
+                                                            Este es un correo de prueba
+                                                            generado desde el servicio
+                                                            de correo de PREVÉN.
+                                                        </p>
+
+                                                        <p style=""
+                                                            font-weight: bold;
+                                                            color: #071f55;
+                                                        "">
+                                                            Microsoft Graph está
+                                                            funcionando correctamente.
+                                                        </p>
+
+                                                        <p>
+                                                            Esta prueba también valida
+                                                            la visualización de las
+                                                            imágenes incorporadas en
+                                                            el correo.
+                                                        </p>
+
+                                                    </td>
+                                                </tr>
+
+                                            </table>
+
+                                        </td>
+                                    </tr>
+
+
+                                    <!-- ===================================== -->
+                                    <!-- INFORMACIÓN DE LA PRUEBA -->
+                                    <!-- ===================================== -->
+
+                                    <tr>
+                                        <td align=""center"">
+
+                                            <table width=""80%""
+                                                cellpadding=""0""
+                                                cellspacing=""0""
+                                                border=""0""
+                                                style=""
+                                                    border: 2px solid #1b2a4e;
+                                                    border-collapse: collapse;
+                                                "">
+
+                                                <tr>
+                                                    <td style=""
+                                                        padding: 15px 25px;
+                                                        font-size: 15px;
+                                                    "">
+                                                        Fecha de prueba
+                                                    </td>
+
+                                                    <td style=""
+                                                        padding: 15px 25px;
+                                                        text-align: right;
+                                                        font-size: 15px;
+                                                    "">
+                                                        {DateTime.Now:dd/MM/yyyy HH:mm:ss}
+                                                    </td>
+                                                </tr>
+
+                                                <tr style=""
+                                                    background-color: #1b2a4e;
+                                                    color: #ffffff;
+                                                "">
+
+                                                    <td style=""
+                                                        padding: 12px 25px;
+                                                        font-weight: bold;
+                                                    "">
+                                                        RESULTADO
+                                                    </td>
+
+                                                    <td style=""
+                                                        padding: 12px 25px;
+                                                        text-align: right;
+                                                        font-weight: bold;
+                                                    "">
+                                                        PRUEBA DE IMÁGENES
+                                                    </td>
+
+                                                </tr>
+
+                                            </table>
+
+                                        </td>
+                                    </tr>
+
+
+                                    <!-- ===================================== -->
+                                    <!-- FOOTER -->
+                                    <!-- ===================================== -->
+
+                                    <tr>
+                                        <td style=""
+                                            padding: 30px 20px 10px 20px;
+                                            text-align: center;
+                                            color: #1b2a4e;
+                                            font-weight: bold;
+                                            font-size: 18px;
+                                        "">
+
+                                            PREVÉN | Tu socio de seguros
+
+                                        </td>
+                                    </tr>
+
+
+                                    <!-- ===================================== -->
+                                    <!-- REDES SOCIALES -->
+                                    <!-- ===================================== -->
+
+                                    <tr>
+                                        <td>
+
+                                            <table width=""100%""
+                                                cellpadding=""0""
+                                                cellspacing=""0""
+                                                border=""0"">
+
+                                                <tr>
+
+                                                    <!-- SITIO WEB -->
+
+                                                    <td style=""
+                                                        padding:
+                                                            0 0 15px 20px;
+                                                        font-size: 13px;
+                                                        text-align: left;
+                                                        font-weight: bold;
+                                                    "">
+
+                                                        <a
+                                                            href=""https://preven.mx""
+                                                            target=""_blank""
+                                                            style=""
+                                                                text-decoration: none;
+                                                                color: #1b2a4e;
+                                                            "">
+
+                                                            www.preven.mx
+
+                                                        </a>
+
+                                                    </td>
+
+
+                                                    <!-- REDES -->
+
+                                                    <td style=""
+                                                        padding:
+                                                            0 20px 15px 0;
+                                                        font-size: 13px;
+                                                        text-align: right;
+                                                        font-weight: bold;
+                                                    "">
+
+                                                        <span style=""
+                                                            vertical-align: middle;
+                                                            color: #1b2a4e;
+                                                        "">
+                                                            prevenmx
+                                                        </span>
+
+                                                        &nbsp;
+
+
+                                                        <!-- FACEBOOK -->
+
+                                                        <a
+                                                            href=""https://www.facebook.com/prevenmx""
+                                                            target=""_blank""
+                                                            style=""
+                                                                text-decoration: none;
+                                                            "">
+
+                                                            <img
+                                                                src=""cid:FACEBOOK_IMG""
+                                                                alt=""Facebook""
+                                                                width=""24""
+                                                                height=""24""
+                                                                style=""
+                                                                    width: 24px;
+                                                                    height: 24px;
+                                                                    vertical-align: middle;
+                                                                    border: 0;
+                                                                "">
+
+                                                        </a>
+
+
+                                                        <!-- INSTAGRAM -->
+
+                                                        <a
+                                                            href=""https://www.instagram.com/prevenmx""
+                                                            target=""_blank""
+                                                            style=""
+                                                                text-decoration: none;
+                                                            "">
+
+                                                            <img
+                                                                src=""cid:INSTAGRAM_IMG""
+                                                                alt=""Instagram""
+                                                                width=""24""
+                                                                height=""24""
+                                                                style=""
+                                                                    width: 24px;
+                                                                    height: 24px;
+                                                                    vertical-align: middle;
+                                                                    border: 0;
+                                                                "">
+
+                                                        </a>
+
+                                                    </td>
+
+                                                </tr>
+
+                                            </table>
+
+                                        </td>
+                                    </tr>
+
+
+                                    <!-- ===================================== -->
+                                    <!-- UUID -->
+                                    <!-- ===================================== -->
+
+                                    <tr>
+                                        <td style=""
+                                            padding: 5px 20px 20px 20px;
+                                            text-align: center;
+                                            font-size: 10px;
+                                            color: #999999;
+                                        "">
+
+                                            Identificador de prueba:
+                                            {uuid}
+
+                                        </td>
+                                    </tr>
+
+                                </table>
+
+                            </td>
+                        </tr>
+
+                    </table>
+
+                </body>
+                </html>";
+
+
+                bool enviado =
+                    await envioEmail(
+                        uuid,
+                        configuracion,
+                        configuracion.notifica_puntos,
+                        recipientEmail,
+                        subject,
+                        body,
+                        // Incluye imágenes inline para validar el formato completo.
+                        true
+                    );
+
+
+                if (enviado)
+                {
+                    response.respuesta = true;
+                    response.statusCode = HttpStatusCode.OK;
+                    response.mensaje = "Correo de prueba enviado correctamente.";
+                    response.resultado =
+                        new
+                        {
+                            remitente = configuracion.notifica_puntos,
+                            destinatario = recipientEmail,
+                            fecha = DateTime.Now
+                        };
+                }
+                else
+                {
+                    response.respuesta = false;
+                    response.statusCode = HttpStatusCode.InternalServerError;
+                    response.mensaje = "No fue posible enviar el correo de prueba.";
+                }
+            }
+            catch (Exception ex)
+            {
+                response.respuesta = false;
+                response.statusCode = HttpStatusCode.InternalServerError;
+                response.mensaje = "Ocurrió un error al realizar la prueba de correo.";
+                response.descripcion = ex.ToString();
+
+                _log.Add(uuid + " ERROR - Excepción en clase EmailNegocio método Prueba: " + ex);
+            }
+
+            return response;
         }
     }
 }

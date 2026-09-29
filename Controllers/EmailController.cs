@@ -83,9 +83,82 @@ namespace api_preven.Controllers
                 _apiResponse.respuesta = false;
                 _apiResponse.statusCode = HttpStatusCode.InternalServerError;
                 _apiResponse.mensaje = "Ocurrio un error en el proceso. Comunicate con el administrador del sistema.";
-                _apiResponse.descripcion = "Excepción en controlador AgenteTiendaController método AgenteTiendaConsulta: " + ex.ToString();
+                _apiResponse.descripcion = "Excepción en controlador EmailController método Puntos: " + ex.ToString();
                 return HttpResponseHelper.CreateHttpResponse(_apiResponse);
             }
         }
+        /*[HttpPost("prueba")]
+        [AllowAnonymous]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<APIResponse>> Prueba([FromBody] EmailPruebaModel emailPruebaModel)
+        {
+            _uuid = Guid.NewGuid();
+            _apiResponse = new()
+            {
+                uuid = _uuid
+            };
+
+            try
+            {
+                // ==========================================================
+                // VALIDAR MODELO
+                // ==========================================================
+
+                if (!ModelState.IsValid)
+                {
+                    _apiResponse.respuesta = false;
+                    _apiResponse.statusCode = HttpStatusCode.BadRequest;
+                    _apiResponse.mensaje = "El modelo de prueba de email no es válido.";
+                    _apiResponse.resultado = ModelState;
+
+                    return HttpResponseHelper.CreateHttpResponse(_apiResponse);
+                }
+
+                if (emailPruebaModel == null)
+                {
+                    _apiResponse.respuesta = false;
+                    _apiResponse.statusCode = HttpStatusCode.BadRequest;
+                    _apiResponse.mensaje = "El modelo de prueba de email es nulo.";
+                    return HttpResponseHelper.CreateHttpResponse(_apiResponse);
+                }
+
+                if (string.IsNullOrWhiteSpace(emailPruebaModel.email))
+                {
+                    _apiResponse.respuesta = false;
+                    _apiResponse.statusCode = HttpStatusCode.BadRequest;
+                    _apiResponse.mensaje = "Debe indicar el correo destino.";
+                    return HttpResponseHelper.CreateHttpResponse(_apiResponse);
+                }
+
+                // ==========================================================
+                // USUARIO ADMINISTRADOR
+                //
+                // Este endpoint es únicamente para diagnóstico del servicio
+                // de correo y no requiere autenticación Bearer.
+                // ==========================================================
+
+                const int id_usuario = 1;
+                _log.Add( _uuid + " INFO - Inicia prueba manual de envío de correo. Id Usuario: " + id_usuario);
+
+                // ==========================================================
+                // PRUEBA DE CORREO
+                // ==========================================================
+
+                _apiResponse = await _emailNegocio.Prueba(_uuid, id_usuario, emailPruebaModel.email);
+                return HttpResponseHelper.CreateHttpResponse(_apiResponse);
+            }
+            catch (Exception ex)
+            {
+                _apiResponse.respuesta = false;
+                _apiResponse.statusCode = HttpStatusCode.InternalServerError;
+                _apiResponse.mensaje = "Ocurrió un error en el proceso. Comunicate con el administrador del sistema.";
+                _apiResponse.descripcion = "Excepción en controlador EmailController método Prueba: " + ex;
+                _log.Add(_uuid + " ERROR - Excepción en controlador EmailController método Prueba: " + ex);
+                return HttpResponseHelper.CreateHttpResponse(_apiResponse);
+            }
+        }*/
     }
 }

@@ -127,8 +127,8 @@ namespace api_preven_email_service.DAO.Empresa{
 
             return resultado;
         }
-        public async Task<ResponseGetModel> EmpresaParametroEmail(Guid uuid, NpgsqlConnection session) {
-            _log.Add(uuid + " INFO - Ingresa a clase EmpresaParametroDAO método EmpresaParametroEmail");
+        public async Task<ResponseGetModel> EmpresaParametroEmail_OLD(Guid uuid, NpgsqlConnection session) {
+            _log.Add(uuid + " INFO - Ingresa a clase EmpresaParametroDAO método EmpresaParametroEmail_OLD");
             bool bandera = false;
             ResponseGetModel resultado = new();
             NpgsqlTransaction? transaction = null;
@@ -154,20 +154,20 @@ namespace api_preven_email_service.DAO.Empresa{
                     
                     if (bandera && transaction != null) {
                         transaction.Commit();
-                        _log.Add(uuid + " INFO - Commit clase EmpresaParametroDAO método EmpresaParametroEmail");
+                        _log.Add(uuid + " INFO - Commit clase EmpresaParametroDAO método EmpresaParametroEmail_OLD");
                         session.Close();
-                        _log.Add(uuid + " INFO - Cierra conexión clase EmpresaParametroDAO método EmpresaParametroEmail");
+                        _log.Add(uuid + " INFO - Cierra conexión clase EmpresaParametroDAO método EmpresaParametroEmail_OLD");
                     }
                 }
             } catch (Exception ex) {
-                _log.Add(uuid + " ERROR - Excepción en clase EmpresaParametroDAO método EmpresaParametroEmail: " + ex.Message);
+                _log.Add(uuid + " ERROR - Excepción en clase EmpresaParametroDAO método EmpresaParametroEmail_OLD: " + ex.Message);
 
                 if (bandera && transaction != null)
                 {
                     transaction.Rollback();
-                    _log.Add(uuid + " INFO - Rollback clase EmpresaParametroDAO método EmpresaParametroEmail");
+                    _log.Add(uuid + " INFO - Rollback clase EmpresaParametroDAO método EmpresaParametroEmail_OLD");
                     session.Close();
-                    _log.Add(uuid + " INFO - Cierra conexión clase EmpresaParametroDAO método EmpresaParametroEmail");
+                    _log.Add(uuid + " INFO - Cierra conexión clase EmpresaParametroDAO método EmpresaParametroEmail_OLD");
                 }
 
                 resultado.entidad = null;  // Entidad nula en caso de error
@@ -177,8 +177,43 @@ namespace api_preven_email_service.DAO.Empresa{
                 {
                     session.Dispose();
                     session.Close();
-                    _log.Add(uuid + " INFO - Finally Cierra conexión clase EmpresaParametroDAO método EmpresaParametroEmail");
+                    _log.Add(uuid + " INFO - Finally Cierra conexión clase EmpresaParametroDAO método EmpresaParametroEmail_OLD");
                 }
+            }
+
+            return resultado;
+        }
+        public async Task<ResponseGetModel> EmpresaParametroEmail( Guid uuid, NpgsqlConnection session)
+        {
+            _log.Add(uuid + " INFO - Ingresa a clase EmpresaParametroDAO método EmpresaParametroEmail");
+
+            ResponseGetModel resultado = new();
+
+            try
+            {
+                if (session != null)
+                {
+                    var sql = @"
+                        SELECT MAX(valor) FILTER (WHERE clave = 'EMAIL_TENANT_ID') AS tenant_id,
+                               MAX(valor) FILTER (WHERE clave = 'EMAIL_CLIENT_ID') AS client_id,
+                               MAX(valor) FILTER (WHERE clave = 'EMAIL_CLIENT_SECRET') AS client_secret,
+                               MAX(valor) FILTER (WHERE clave = 'NOTIFICA_PUNTOS') AS notifica_puntos,
+                               MAX(valor) FILTER (WHERE clave = 'NOTIFICA_PEDIDO') AS notifica_pedido
+                          FROM public.empresa_parametro
+                         WHERE estatus = true";
+
+                    var result = await session.QueryFirstOrDefaultAsync<EmailConfiguracionModel>(sql);
+
+                    resultado.entidad = result;
+                    resultado.estatus = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.Add(uuid + " ERROR - Excepción en clase EmpresaParametroDAO método EmpresaParametroEmail: " + ex);
+
+                resultado.entidad = null;
+                resultado.estatus = false;
             }
 
             return resultado;
